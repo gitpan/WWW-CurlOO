@@ -2,24 +2,18 @@ MODULE = WWW::CurlOO	PACKAGE = WWW::CurlOO::Multi	PREFIX = curl_multi_
 
 INCLUDE: const-multi-xs.inc
 
+PROTOTYPES: ENABLE
+
 void
-curl_multi_new( ... )
+curl_multi_new( sclass="WWW::CurlOO::Multi", base=HASHREF_BY_DEFAULT )
+	const char *sclass
+	SV *base
 	PREINIT:
 		perl_curl_multi_t *self;
-		char *sclass = "WWW::CurlOO::Multi";
-		SV *base;
 		HV *stash;
 	PPCODE:
-		if ( items > 0 && !SvROK( ST(0) )) {
-			STRLEN dummy;
-			sclass = SvPV( ST(0), dummy );
-		}
-		if ( items > 1 ) {
-			base = ST(1);
-			if ( ! SvOK( base ) || ! SvROK( base ) )
-				croak( "object base must be a valid reference\n" );
-		} else
-			base = newRV_noinc( (SV *)newHV() );
+		if ( ! SvOK( base ) || ! SvROK( base ) )
+			croak( "object base must be a valid reference\n" );
 
 		self = perl_curl_multi_new();
 		perl_curl_setptr( aTHX_ base, self );
@@ -35,7 +29,11 @@ curl_multi_add_handle(curlm, curl)
 	WWW::CurlOO::Multi curlm
 	WWW::CurlOO::Easy curl
 	CODE:
-		curl_multi_add_handle(curlm->curlm, curl->curl);
+		curlm->perl_self = ST(0);
+		/* XXX: increase refcount */
+		perl_curl_easy_update( curl, newSVsv( ST(1) ) );
+		curl->multi = curlm;
+		curl_multi_add_handle( curlm->curlm, curl->curl );
 
 void
 curl_multi_remove_handle(curlm, curl)
@@ -43,6 +41,10 @@ curl_multi_remove_handle(curlm, curl)
 	WWW::CurlOO::Easy curl
 	CODE:
 		curl_multi_remove_handle(curlm->curlm, curl->curl);
+		/* XXX: decrease refcount */
+		sv_2mortal( curl->perl_self );
+		curl->perl_self = NULL;
+		curl->multi = NULL;
 
 void
 curl_multi_info_read(self)
@@ -50,23 +52,26 @@ curl_multi_info_read(self)
 	PREINIT:
 		CURL *easy = NULL;
 		CURLcode res;
-		char *stashid;
+		WWW__CurlOO__Easy peasy;
 		int queue;
 		CURLMsg *msg;
 	PPCODE:
 		/* {{{ */
 		while ((msg = curl_multi_info_read(self->curlm, &queue))) {
-			if (msg->msg == CURLMSG_DONE) {
-					easy=msg->easy_handle;
-					res=msg->data.result;
-			break;
+			if ( msg->msg == CURLMSG_DONE) {
+				easy = msg->easy_handle;
+				res = msg->data.result;
+				break;
 			}
 		};
 		if (easy) {
-			curl_easy_getinfo(easy, CURLINFO_PRIVATE, &stashid);
-			curl_multi_remove_handle(self->curlm, easy);
-			XPUSHs(sv_2mortal(newSVpv(stashid,0)));
-			XPUSHs(sv_2mortal(newSViv(res)));
+			curl_easy_getinfo( easy, CURLINFO_PRIVATE, (void *)&peasy );
+			curl_multi_remove_handle( self->curlm, easy );
+			/* XXX: decrease refcount */
+			XPUSHs( sv_2mortal( peasy->perl_self ) );
+			peasy->perl_self = NULL;
+			peasy->multi = NULL;
+			XPUSHs( sv_2mortal( newSViv( res ) ) );
 		} else {
 			XSRETURN_EMPTY;
 		}
@@ -138,7 +143,9 @@ curl_multi_setopt(self, option, value)
 				curl_multi_setopt( self->curlm, CURLMOPT_SOCKETFUNCTION, SvOK(value) ? cb_multi_socket : NULL );
 				curl_multi_setopt( self->curlm, CURLMOPT_SOCKETDATA, SvOK(value) ? self : NULL );
 				perl_curl_multi_register_callback( aTHX_ self,
-					option == CURLMOPT_SOCKETDATA ? &(self->callback_ctx[CALLBACKM_SOCKET]) : &(self->callback[CALLBACKM_SOCKET]),
+					option == CURLMOPT_SOCKETDATA ?
+						&(self->cb[CALLBACKM_SOCKET].data) :
+						&(self->cb[CALLBACKM_SOCKET].func),
 					value);
 				break;
 			case CURLMOPT_TIMERFUNCTION:
@@ -146,7 +153,9 @@ curl_multi_setopt(self, option, value)
 				curl_multi_setopt( self->curlm, CURLMOPT_TIMERFUNCTION, SvOK(value) ? cb_multi_timer : NULL );
 				curl_multi_setopt( self->curlm, CURLMOPT_TIMERDATA, SvOK(value) ? self : NULL );
 				perl_curl_multi_register_callback( aTHX_ self,
-					option == CURLMOPT_TIMERDATA ? &(self->callback_ctx[CALLBACKM_TIMER]) : &(self->callback[CALLBACKM_TIMER]),
+					option == CURLMOPT_TIMERDATA ?
+						&(self->cb[CALLBACKM_TIMER].data) :
+						&(self->cb[CALLBACKM_TIMER].func),
 					value );
 				break;
 
@@ -170,6 +179,7 @@ curl_multi_perform(self)
 	PREINIT:
 		int remaining;
 	CODE:
+		self->perl_self = ST(0);
 		while(CURLM_CALL_MULTI_PERFORM ==
 			curl_multi_perform(self->curlm, &remaining));
 		RETVAL = remaining;
@@ -184,6 +194,7 @@ curl_multi_socket_action(self, sockfd=CURL_SOCKET_BAD, ev_bitmask=0)
 	PREINIT:
 		int remaining;
 	CODE:
+		self->perl_self = ST(0);
 		while( CURLM_CALL_MULTI_PERFORM == curl_multi_socket_action(
 				self->curlm, (curl_socket_t) sockfd, ev_bitmask, &remaining ) )
 			;
