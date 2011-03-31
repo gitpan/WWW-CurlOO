@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               WWW-CurlOO
-version:            0.01
+version:            0.02
 abstract:           Perl interface for libcurl
 author:
     - Przemysław Iskra <sparky at pld-linux.org>
@@ -11,7 +11,7 @@ configure_requires:
 build_requires:
     ExtUtils::MakeMaker:  0
 requires:
-    perl:  5.006001
+    perl:  5.008001
 resources:
     repository:  https://github.com/sparky/perl-WWW-CurlOO
 no_index:
