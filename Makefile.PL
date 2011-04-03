@@ -2,6 +2,7 @@ use strict;
 use ExtUtils::MakeMaker;
 use ExtUtils::MakeMaker::Config;
 use ExtUtils::Constant 0.11 'WriteConstants';
+use ExtUtils::PkgConfig;
 use File::Path qw(make_path);
 
 # you can set those manually if curl-config is not working for you
@@ -14,32 +15,38 @@ my %curl = (
 
 
 # - this version added curl_multi_socket_action() and many symbols
-my $minimum_libcurl_verstr = "7.15.4";
-my $minimum_libcurl_ver = 0x070f04;
+my $minimum_libcurl_ver = "7.15.4";
 my $constant_names;
 
-if ( $curl{libs} and $curl{libs} ) {
+if ( $curl{libs} and $curl{version} ) {
 	print "Using manually introduced curl options:\n";
 	while ( my ($k, $v) = each %curl ) {
 		printf " %8s => %s\n", $k, $v;
 	}
-} elsif ( $^O eq 'MSWin32' ) {
-	print	"Sorry, no automated install is available on Windows,\n".
-		"please see the README.Win32 file on instructions for a manual install.\n";
-	exit 1;
 } else {
-	%curl = get_curl_config();
+	%curl = ExtUtils::PkgConfig->find( 'libcurl' );
+	$curl{version} = $curl{modversion};
+
+	print "Found libcurl version $curl{version}\n";
+
+	if ( eval "v$curl{version} lt v$minimum_libcurl_ver" ) {
+		print
+			"Your currently installed libcurl version - $curl{version} - is too old.\n".
+			"This module does not support libcurl older than $minimum_libcurl_ver\n";
+		exit 1;
+	}
 }
 
 my $constant_names_sym = get_constants_symbols( $curl{version} );
 eval {
-	$constant_names = get_constants( $curl{cflags},
+	$curl{incdir} = get_curl_incdir();
+	$constant_names = get_constants_headers( $curl{cflags},
 		$curl{incdir} . "/curl/curl.h",
 		-f $curl{incdir} . "/curl/multi.h" ? $curl{incdir} . "/curl/multi.h" : ()
 	);
 };
 if ( $@ ) {
-	warn "Cannot extract constants from header files: $@\n";
+	warn "Cannot extract constants from header files: $@";
 	warn "Using symbols-in-versions instead\n";
 	$constant_names = $constant_names_sym;
 }
@@ -70,9 +77,10 @@ write_from_template( "Multi", $constant_types[ 3 ] );
 write_from_template( "Share", $constant_types[ 4 ] );
 
 WriteConstants(
-	PROXYSUBS => 1,
+	PROXYSUBS => { croak_on_read => 1 },
 	NAME => 'WWW::CurlOO',
-	NAMES => $constant_types[ 0 ],
+	NAMES => [ map { name => $_, type => 'IV', value => $_, macro => 1 },
+		@{ $constant_types[ 0 ] } ],
 	C_FILE => 'const-c.inc',
 	XS_FILE => 'const-curl-xs.inc',
 	XS_SUBNAME => 'curl_constant',
@@ -97,10 +105,23 @@ WriteMakefile(
 	SIGN		=> 1,
 	LICENSE		=> 'MPL or MIT/X-derivate',	
 	MIN_PERL_VERSION => 5.008001,
+	CONFIGURE_REQUIRES => {
+		"ExtUtils::MakeMaker" => 0,
+		"ExtUtils::MakeMaker::Config" => 0,
+		"ExtUtils::Constant" => 0.11,
+		"ExtUtils::PkgConfig" => 0,
+	},
+	PREREQ_PM => {
+		"Test::More" => 0,
+		"Test::CPAN::Meta" => 0,
+		"Test::Pod" => 0,
+		"File::Temp" => 0,
+		"Scalar::Util" => 0,
+	},
 	PMLIBDIRS => [ 'pplib' ],
 	PMLIBPARENTDIRS => [ 'pplib' ],
 	depend		=> {
-		'CurlOO.c' => 'CurlOO.xs CurlOO_Easy.xs CurlOO_Form.xs CurlOO_Multi.xs CurlOO_Share.xs'
+		'CurlOO.c' => 'CurlOO.xs CurlOO_Easy.xsh CurlOO_Form.xsh CurlOO_Multi.xsh CurlOO_Share.xsh'
 	},
 	clean		=> {
 		FILES => 'const-c.inc const-*-xs.inc const-defenums.h'
@@ -112,36 +133,12 @@ WriteMakefile(
 
 exit 0;
 
-sub get_curl_config
+sub get_curl_incdir
 {
-	my $curl_config = $ENV{CURL_CONFIG} || 'curl-config';
-	my %cc;
-	foreach my $opt ( qw(vernum version prefix cflags libs) ) {
-		my $ret = `${curl_config} --$opt`;
-		if ( $? ) {
-			print "Execution ${curl_config} --$opt failed.\n" .
-				"is your curl installed correctly ?\n";
-			exit 1;
-		}
-		chomp $ret;
-		$cc{ $opt } = $ret;
-		# print "${curl_config} --$opt: $ret\n";
-	}
-
-	print "Found libcurl version $cc{version}\n";
-	
-	if ( $cc{vernum} and hex( $cc{vernum} ) < $minimum_libcurl_ver) {
-		print
-			"Your currently installed libcurl version - $cc{version} - is too old.\n".
-			"This module doesn't seek compatibility with versions older than $minimum_libcurl_verstr\n".
-			"Proceed manually if you know what you're doing.\n";
-		exit 1;
-	}
-
 	my @incpath = (
 		( defined $curl{incdir} ? $curl{incdir} : () ),
-		( $cc{cflags} =~ /-I(\S+)/g ),
-		( "$cc{prefix}/include" ),
+		( $curl{cflags} =~ /-I(\S+)/g ),
+		( "$curl{prefix}/include" ),
 		( split /\s+/, $Config{usrinc} ),
 		( split /\s+/, $Config{locincpth} ),
 		qw(
@@ -152,20 +149,13 @@ sub get_curl_config
 		)
 	);
 
-	my $curl_d;
 	foreach my $inc ( @incpath ) {
 		if ( -f $inc . "/curl/curl.h") {
-			$curl_d = $inc;
-			last;
+			return $inc;
 		}
 	}
 
-	die "Cannot find curl.h - cannot build constants files  - see Makefile.PL"
-		unless defined $curl_d;
-
-	$cc{incdir} = $curl_d;
-	$cc{libs} ||= "-lcurl";
-	return %cc;
+	die "Cannot find curl/curl.h\n";
 }
 
 sub get_constants_symbols
@@ -199,7 +189,7 @@ sub get_constants_symbols
 	return \@out;
 }
 
-sub get_constants
+sub get_constants_headers
 {
 	my %syms;
 	my $cflags = shift;
@@ -287,9 +277,9 @@ sub write_from_template
 	return if $havedir;
 	my $lname = lc $name;
 	WriteConstants(
-		PROXYSUBS => 1,
+		PROXYSUBS => { croak_on_read => 1 },
 		NAME => "WWW::CurlOO::$name",
-		NAMES => $constants,
+		NAMES => [ map { name => $_, type => 'IV', value => $_, macro => 1 }, @$constants ],
 		C_FILE => 'const-c.inc',
 		XS_FILE => "const-$lname-xs.inc",
 		XS_SUBNAME => "curl_${lname}_constant",
