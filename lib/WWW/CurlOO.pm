@@ -7,7 +7,7 @@ use Exporter ();
 
 our $VERSION;
 BEGIN {
-	$VERSION = '0.04';
+	$VERSION = '0.05';
 	XSLoader::load(__PACKAGE__, $VERSION);
 }
 END {
@@ -15,10 +15,7 @@ END {
 }
 
 our @ISA = qw(Exporter);
-our @EXPORT_OK = (
-# @CURLOPT_INCLUDE@
-);
-
+our @EXPORT_OK = grep /^CURL/, keys %{WWW::CurlOO::};
 our %EXPORT_TAGS = ( constants => \@EXPORT_OK );
 
 1;

@@ -75,39 +75,26 @@ cb_share_lock( CURL *easy_handle, curl_lock_data data, curl_lock_access locktype
 		void *userptr )
 {
 	dTHX;
-	dSP;
 
-	int count;
 	perl_curl_share_t *share;
 	perl_curl_easy_t *easy;
 
 	share = (perl_curl_share_t *) userptr;
 	(void) curl_easy_getinfo( easy_handle, CURLINFO_PRIVATE, (void *) &easy );
 
-	ENTER;
-	SAVETMPS;
-	PUSHMARK( sp );
-
 	/* $easy, $data, $locktype, $userdata */
-	XPUSHs( sv_2mortal( newSVsv( easy->perl_self ) ) );
-	XPUSHs( sv_2mortal( newSViv( data ) ) );
-	XPUSHs( sv_2mortal( newSViv( locktype ) ) );
-	if ( share->cb[CB_SHARE_LOCK].data ) {
-		XPUSHs( sv_2mortal( newSVsv( share->cb[CB_SHARE_LOCK].data ) ) );
-	} else {
-		XPUSHs( &PL_sv_undef );
-	}
+	SV *args[] = {
+		newSVsv( easy->perl_self ),
+		newSViv( data ),
+		newSViv( locktype ),
+		NULL
+	};
+	int argn = 3;
 
-	PUTBACK;
-	count = perl_call_sv( share->cb[CB_SHARE_LOCK].func, G_SCALAR );
-	SPAGAIN;
+	if ( share->cb[CB_SHARE_LOCK].data )
+		args[ argn++ ] = newSVsv( share->cb[CB_SHARE_LOCK].data );
 
-	if ( count != 0 )
-		croak( "callback for CURLSHOPT_LOCKFUNCTION didn't return void\n" );
-
-	PUTBACK;
-	FREETMPS;
-	LEAVE;
+	perl_curl_call( aTHX_ share->cb[CB_SHARE_LOCK].func, argn, args );
 	return;
 }
 
@@ -115,43 +102,29 @@ static void
 cb_share_unlock( CURL *easy_handle, curl_lock_data data, void *userptr )
 {
 	dTHX;
-	dSP;
 
-	int count;
 	perl_curl_share_t *share;
 	perl_curl_easy_t *easy;
 
 	share = (perl_curl_share_t *) userptr;
 	(void) curl_easy_getinfo( easy_handle, CURLINFO_PRIVATE, (void *) &easy );
 
-	ENTER;
-	SAVETMPS;
-	PUSHMARK( sp );
-
 	/* $easy, $data, $userdata */
-	XPUSHs( sv_2mortal( newSVsv( easy->perl_self ) ) );
-	XPUSHs( sv_2mortal( newSViv( data ) ) );
-	if ( share->cb[CB_SHARE_LOCK].data ) {
-		XPUSHs( sv_2mortal( newSVsv( share->cb[CB_SHARE_LOCK].data ) ) );
-	} else {
-		XPUSHs( &PL_sv_undef );
-	}
+	SV *args[] = {
+		newSVsv( easy->perl_self ),
+		newSViv( data ),
+		NULL,
+	};
+	int argn = 2;
 
-	PUTBACK;
-	count = perl_call_sv( share->cb[CB_SHARE_LOCK].func, G_SCALAR );
-	SPAGAIN;
+	if ( share->cb[CB_SHARE_LOCK].data )
+		args[ argn++ ] = newSVsv( share->cb[CB_SHARE_LOCK].data );
 
-	if ( count != 0 )
-		croak( "callback for CURLSHOPT_UNLOCKFUNCTION didn't return void\n" );
-
-	PUTBACK;
-	FREETMPS;
-	LEAVE;
+	perl_curl_call( aTHX_ share->cb[CB_SHARE_UNLOCK].data, argn, args );
 	return;
 }
 
-/* XS_SECTION */
-#ifdef XS_SECTION
+
 
 MODULE = WWW::CurlOO	PACKAGE = WWW::CurlOO::Share	PREFIX = curl_share_
 
@@ -185,27 +158,28 @@ curl_share_DESTROY( share )
 	CODE:
 		perl_curl_share_delete( aTHX_ share );
 
-int
+
+void
 curl_share_setopt( share, option, value )
 	WWW::CurlOO::Share share
 	int option
 	SV * value
+	PREINIT:
+		CURLSHcode ret1 = CURLSHE_OK, ret2 = CURLSHE_OK;
 	CODE:
-		/* {{{ */
-		RETVAL = CURLE_OK;
 		switch ( option ) {
 			case CURLSHOPT_LOCKFUNC:
-				RETVAL = curl_share_setopt( share->handle,
+				ret1 = curl_share_setopt( share->handle,
 					CURLSHOPT_LOCKFUNC, SvOK( value ) ? cb_share_lock : NULL );
-				curl_share_setopt( share->handle,
+				ret2 = curl_share_setopt( share->handle,
 					CURLSHOPT_USERDATA, SvOK( value ) ? share : NULL );
 				perl_curl_share_register_callback( aTHX_ share,
 					&(share->cb[CB_SHARE_LOCK].func), value );
 				break;
 			case CURLSHOPT_UNLOCKFUNC:
-				RETVAL = curl_share_setopt( share->handle,
+				ret1 = curl_share_setopt( share->handle,
 					CURLSHOPT_UNLOCKFUNC, SvOK( value ) ? cb_share_unlock : NULL );
-				curl_share_setopt( share->handle,
+				ret2 = curl_share_setopt( share->handle,
 					CURLSHOPT_USERDATA, SvOK( value ) ? share : NULL );
 				perl_curl_share_register_callback( aTHX_ share,
 					&(share->cb[CB_SHARE_UNLOCK].func), value );
@@ -216,28 +190,25 @@ curl_share_setopt( share, option, value )
 				break;
 			case CURLSHOPT_SHARE:
 			case CURLSHOPT_UNSHARE:
-				RETVAL = curl_share_setopt( share->handle, option, (long) SvIV( value ) );
+				ret1 = curl_share_setopt( share->handle, option, (long) SvIV( value ) );
 				break;
 			default:
-				croak( "Unknown curl share option" );
+				ret1 = CURLSHE_BAD_OPTION;
 				break;
 		};
-		/* }}} */
-	OUTPUT:
-		RETVAL
+		if ( ret1 != CURLSHE_OK || ( ret1 = ret2 ) != CURLSHE_OK )
+			die_dual( ret1, curl_share_strerror( ret1 ) );
 
 
 SV *
-curl_share_strerror( share, errornum )
-	WWW::CurlOO::Share share
-	int errornum
+curl_share_strerror( ... )
+	PROTOTYPE: $;$
 	PREINIT:
 		const char *errstr;
-		(void) share; /* unused */
 	CODE:
-		errstr = curl_share_strerror( errornum );
+		if ( items < 1 || items > 2 )
+			croak_xs_usage(cv,  "[share], errnum");
+		errstr = curl_share_strerror( SvIV( ST( items - 1 ) ) );
 		RETVAL = newSVpv( errstr, 0 );
 	OUTPUT:
 		RETVAL
-
-#endif

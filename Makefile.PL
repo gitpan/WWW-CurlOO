@@ -1,7 +1,6 @@
 use strict;
 use ExtUtils::MakeMaker;
 use ExtUtils::MakeMaker::Config;
-use ExtUtils::Constant 0.11 'WriteConstants';
 use ExtUtils::PkgConfig;
 use File::Path qw(make_path);
 
@@ -66,34 +65,25 @@ if ( $@ ) {
 }
 my @constant_types = divide_constants();
 
-# WriteConstants does not honour enums, so we define those symbols
-write_defenums( "const-defenums.h" );
+write_defenums( "const-defenums-h.inc" );
 
-make_path( "pplib/WWW/CurlOO" );
-write_from_template( "CurlOO", $constant_types[ 0 ], "WWW" );
-write_from_template( "Easy", $constant_types[ 1 ] );
-write_from_template( "Form", $constant_types[ 2 ] );
-write_from_template( "Multi", $constant_types[ 3 ] );
-write_from_template( "Share", $constant_types[ 4 ] );
-
-WriteConstants(
-	PROXYSUBS => { croak_on_read => 1 },
-	NAME => 'WWW::CurlOO',
-	NAMES => [ map { name => $_, type => 'IV', value => $_, macro => 1 },
-		@{ $constant_types[ 0 ] } ],
-	C_FILE => 'const-c.inc',
-	XS_FILE => 'const-curl-xs.inc',
-	XS_SUBNAME => 'curl_constant',
-	C_SUBNAME => 'curl_constant',
-);
+write_constants( "", $constant_types[ 0 ] );
+write_constants( "Easy", $constant_types[ 1 ] );
+write_constants( "Form", $constant_types[ 2 ] );
+write_constants( "Multi", $constant_types[ 3 ] );
+write_constants( "Share", $constant_types[ 4 ] );
+split_xs( "Easy" );
+split_xs( "Form" );
+split_xs( "Multi" );
+split_xs( "Share" );
 
 
 # older perl seems to choke on it, maybe utf8::upgrade would work ?
 my $l_ = $] >= 5.010 ? "ł" : "l";
 WriteMakefile(
 	NAME 		=> 'WWW::CurlOO',
-	VERSION_FROM	=> 'pplib/WWW/CurlOO.pm',
-	ABSTRACT_FROM	=> 'pplib/WWW/CurlOO.pm',
+	VERSION_FROM	=> 'lib/WWW/CurlOO.pm',
+	ABSTRACT_FROM	=> 'lib/WWW/CurlOO.pm',
 	AUTHOR		=> "Przemys${l_}aw Iskra <sparky at pld-linux.org>",
 	META_MERGE	=> {
 		resources => {
@@ -103,12 +93,11 @@ WriteMakefile(
 	CCFLAGS		=> $curl{cflags},
 	LIBS		=> $curl{libs},
 	SIGN		=> 1,
-	LICENSE		=> 'MPL or MIT/X-derivate',	
+	LICENSE		=> 'mit',
 	MIN_PERL_VERSION => 5.008001,
 	CONFIGURE_REQUIRES => {
 		"ExtUtils::MakeMaker" => 0,
 		"ExtUtils::MakeMaker::Config" => 0,
-		"ExtUtils::Constant" => 0.11,
 		"ExtUtils::PkgConfig" => 0,
 	},
 	PREREQ_PM => {
@@ -118,16 +107,11 @@ WriteMakefile(
 		"File::Temp" => 0,
 		"Scalar::Util" => 0,
 	},
-	PMLIBDIRS => [ 'pplib' ],
-	PMLIBPARENTDIRS => [ 'pplib' ],
 	depend		=> {
-		'CurlOO.c' => 'CurlOO.xs CurlOO_Easy.xsh CurlOO_Form.xsh CurlOO_Multi.xsh CurlOO_Share.xsh'
+		'$(FIRST_MAKEFILE)' => 'CurlOO_Easy.xsh CurlOO_Form.xsh CurlOO_Multi.xsh CurlOO_Share.xsh'
 	},
 	clean		=> {
-		FILES => 'const-c.inc const-*-xs.inc const-defenums.h'
-	},
-	realclean	=> {
-		FILES => 'pplib',
+		FILES => 'const-*.inc curloo-*.inc'
 	},
 );
 
@@ -247,44 +231,73 @@ sub divide_constants
 	return @out;
 }
 
-sub write_from_template
+sub split_xs
+{
+	my $name = shift;
+	my $in = "CurlOO_$name.xsh";
+
+	open my $fin, '<', $in
+		or die "Can't open $in: $!\n";
+
+	my $outc = "curloo-$name-c.inc";
+	open my $foutc, '>', $outc
+		or die "Can't create $outc: $!\n";
+	print "Writing $outc\n";
+
+	my $outxs = "curloo-$name-xs.inc";
+	open my $foutxs, '>', $outxs
+		or die "Can't create $outxs: $!\n";
+	print "Writing $outxs\n";
+
+	while ( <$fin> ) {
+		if ( /^MODULE\s*=.*PACKAGE/ ) {
+			print $foutxs $_;
+			print $foutxs @_ = <$fin>;
+			last;
+		} else {
+			print $foutxs "\n";
+			print $foutc $_;
+		}
+	}
+}
+
+sub write_constants
 {
 	my $name = shift;
 	my $constants = shift;
-	my $dir = shift;
-	my $havedir = !!$dir;
-	$dir ||= "WWW/CurlOO";
 
-	my $template = "lib/$dir/$name.pm";
-	my $out = "pplib/$dir/$name.pm";
+	my $lname = $name ? lc $name : 'curl';
+	my $out = "const-$lname-xs.inc";
+	print "Writing $out\n";
 
-	print "Writing $out from $template\n";
-	open my $fout, ">", $out
-		or die "Can't create $out\n";
+	open my $foutxs, '>', $out
+		or die "Can't create $out: $!\n";
 
-	open my $fin, "<", $template
-		or die "Can't read $template\n";
-
-	local $_;
-	while (<$fin>) {
-		if (m/^\s*#\s*\@CURLOPT_INCLUDE\@/) {
-			print $fout join "\n", 'qw(', @$constants, ')';
-		} else {
-			print $fout $_;
-		}
+	$name .= '::' if $name;
+	my $symbol_table = "WWW::CurlOO::$name";
+	print $foutxs <<"EOBOOT";
+BOOT:
+	{
+		dTHX;
+		HV *symbol_table = get_hv( "$symbol_table", GV_ADD );
+		static const struct iv_s values_for_iv[] = {
+EOBOOT
+	foreach my $c ( sort @$constants ) {
+		printf $foutxs qq[\t\t\t{ "%s", %d, %s },\n], $c, length $c, $c;
 	}
+	print $foutxs <<'EOBOOT';
+			{ NULL, 0, 0 }
+		};
+		const struct iv_s *value_for_iv = values_for_iv;
+		while ( value_for_iv->name ) {
+			perl_curl_constant_add(aTHX_ symbol_table, value_for_iv->name,
+				value_for_iv->namelen, newSViv( value_for_iv->value ) );
+			++value_for_iv;
+		}
 
-	return if $havedir;
-	my $lname = lc $name;
-	WriteConstants(
-		PROXYSUBS => { croak_on_read => 1 },
-		NAME => "WWW::CurlOO::$name",
-		NAMES => [ map { name => $_, type => 'IV', value => $_, macro => 1 }, @$constants ],
-		C_FILE => 'const-c.inc',
-		XS_FILE => "const-$lname-xs.inc",
-		XS_SUBNAME => "curl_${lname}_constant",
-		C_SUBNAME => 'curl_constant',
-	);
+		++PL_sub_generation;
+	}
+EOBOOT
 
 }
 
