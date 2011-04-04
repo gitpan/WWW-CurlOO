@@ -205,14 +205,14 @@ curl_form_get( form, ... )
 		SV *output;
 	PPCODE:
 		form->perl_self = sv_2mortal( newSVsv( ST(0) ) );
-		sv_setsv( ERRSV, &PL_sv_undef );
+		CLEAR_ERRSV();
 		if ( items < 2 ) {
 			output = sv_2mortal( newSVpv( "", 0 ) );
 			curl_formget( form->post, output, cb_form_get_sv );
 
 			/* rethrow errors */
 			if ( SvTRUE( ERRSV ) )
-				Perl_die_where( aTHX_ NULL );
+				croak( NULL );
 
 			ST(0) = output;
 			XSRETURN(1);
@@ -234,7 +234,7 @@ curl_form_get( form, ... )
 
 			/* rethrow errors */
 			if ( SvTRUE( ERRSV ) )
-				Perl_die_where( aTHX_ NULL );
+				croak( NULL );
 
 			XSRETURN(0);
 
@@ -245,7 +245,7 @@ curl_form_get( form, ... )
 
 			/* rethrow errors */
 			if ( SvTRUE( ERRSV ) )
-				Perl_die_where( aTHX_ NULL );
+				croak( NULL );
 
 			XSRETURN(0);
 		}
