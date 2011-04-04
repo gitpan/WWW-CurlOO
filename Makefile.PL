@@ -2,7 +2,6 @@ use strict;
 use ExtUtils::MakeMaker;
 use ExtUtils::MakeMaker::Config;
 use ExtUtils::PkgConfig;
-use File::Path qw(make_path);
 
 # you can set those manually if curl-config is not working for you
 my %curl = (
@@ -59,6 +58,12 @@ if ( $@ ) {
 	foreach my $cnt ( @$constant_names_sym ) {
 		print "$cnt missing\n" unless $cn{ $cnt };
 	}
+
+	my %cns;
+	@cns{ @$constant_names_sym } = ( 1 ) x scalar @$constant_names_sym;
+	foreach my $cnt ( @$constant_names ) {
+		print "$cnt unexpected\n" unless $cns{ $cnt };
+	}
 	die "Found only $cn constants, there should be at least $cns\n"
 		if $cn < $cns;
 	print "-> found $cn constants (should be $cns)\n";
@@ -108,6 +113,7 @@ WriteMakefile(
 		"Scalar::Util" => 0,
 	},
 	depend		=> {
+		'Makefile'	=> '$(VERSION_FROM)',
 		'$(FIRST_MAKEFILE)' => 'CurlOO_Easy.xsh CurlOO_Form.xsh CurlOO_Multi.xsh CurlOO_Share.xsh'
 	},
 	clean		=> {
@@ -207,7 +213,7 @@ sub get_constants_headers
 
 	my @out;
 	foreach my $e (sort keys %syms) {
-		if($e =~ /(OBSOLETE|^CURL_EXTERN|_LAST\z|_LASTENTRY\z)/) {
+		if ( $e =~ /(OBSOLETE|^CURL_EXTERN|_LAST\z|_LASTENTRY\z|^CURL_FORMAT_OFF_T$|^CURL_ISOCPP$)/ ) {
 			next;
 		}
 		push @out, $e;

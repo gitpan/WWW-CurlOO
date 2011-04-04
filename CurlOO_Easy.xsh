@@ -44,8 +44,7 @@ struct perl_curl_easy_s {
 	callback_t cb[ CB_EASY_LAST ];
 
 	/* copy of error buffer var for caller*/
-	char errbuf[CURL_ERROR_SIZE+1];
-	char *errbufvarname;
+	char errbuf[ CURL_ERROR_SIZE + 1 ];
 
 	optionll_t *strings;
 
@@ -173,9 +172,6 @@ perl_curl_easy_delete( pTHX_ perl_curl_easy_t *easy )
 		sv_2mortal( easy->cb[i].data );
 	}
 
-	if ( easy->errbufvarname )
-		free( easy->errbufvarname );
-
 	if ( easy->strings ) {
 		optionll_t *next, *now = easy->strings;
 		do {
@@ -202,27 +198,6 @@ perl_curl_easy_delete( pTHX_ perl_curl_easy_t *easy )
 
 	Safefree( easy );
 
-} /*}}}*/
-
-/* Register a callback function */
-
-static void
-perl_curl_easy_register_callback( pTHX_ perl_curl_easy_t *easy, SV **callback,
-		SV *function )
-/*{{{*/ {
-	if ( function && SvOK( function ) ) {
-		/* FIXME: need to check the ref-counts here */
-		if ( *callback == NULL ) {
-			*callback = newSVsv( function );
-		} else {
-			SvSetSV( *callback, function );
-		}
-	} else {
-		if ( *callback != NULL ) {
-			sv_2mortal( *callback );
-			*callback = NULL;
-		}
-	}
 } /*}}}*/
 
 static size_t
@@ -254,52 +229,42 @@ write_to_ctx( pTHX_ SV* const call_ctx, const char* const ptr, size_t const n )
 /* generic fwrite callback, which decides which callback to call */
 static size_t
 fwrite_wrapper( const void *ptr, size_t size, size_t nmemb,
-		perl_curl_easy_t *easy, SV *call_function, SV *call_ctx )
+		perl_curl_easy_t *easy, callback_t *cb )
 /*{{{*/ {
 	dTHX;
-	if ( call_function ) { /* We are doing a callback to perl */
+	if ( cb->func ) { /* We are doing a callback to perl */
 		SV *args[] = {
 			newSVsv( easy->perl_self ),
 			ptr
 				? newSVpvn( (char *) ptr, (STRLEN) (size * nmemb) )
-				: newSVsv( &PL_sv_undef ),
-			NULL
+				: newSVsv( &PL_sv_undef )
 		};
-		int argn = 2;
 
-		if ( call_ctx )
-			args[ argn++ ] = newSVsv( call_ctx );
-
-		return perl_curl_call( aTHX_ call_function, argn, args );
+		return PERL_CURL_CALL( cb, args );
 	} else {
-		return write_to_ctx( aTHX_ call_ctx, ptr, size * nmemb );
+		return write_to_ctx( aTHX_ cb->data, ptr, size * nmemb );
 	}
 } /*}}}*/
 
 /* debug fwrite callback */
 static size_t
 fwrite_wrapper2( const void *ptr, size_t size, perl_curl_easy_t *easy,
-		SV *call_function, SV *call_ctx, curl_infotype type )
+		callback_t *cb, curl_infotype type )
 /*{{{*/ {
 	dTHX;
 
-	if ( call_function ) { /* We are doing a callback to perl */
+	if ( cb->func ) { /* We are doing a callback to perl */
 		SV *args[] = {
 			newSVsv( easy->perl_self ),
 			newSViv( type ),
 			ptr
 				? newSVpvn( (char *) ptr, (STRLEN) (size) )
-				: newSVsv( &PL_sv_undef ),
-			NULL
+				: newSVsv( &PL_sv_undef )
 		};
-		int argn = 3;
 
-		if ( call_ctx )
-			args[ argn++ ] = newSVsv( call_ctx );
-
-		return perl_curl_call( aTHX_ call_function, argn, args );
+		return PERL_CURL_CALL( cb, args );
 	} else {
-		return write_to_ctx( aTHX_ call_ctx, ptr, size * sizeof(char) );
+		return write_to_ctx( aTHX_ cb->data, ptr, size );
 	}
 } /*}}}*/
 
@@ -310,7 +275,7 @@ cb_easy_write( const void *ptr, size_t size, size_t nmemb, void *userptr )
 	perl_curl_easy_t *easy;
 	easy = (perl_curl_easy_t *) userptr;
 	return fwrite_wrapper( ptr, size, nmemb, easy,
-			easy->cb[CB_EASY_WRITE].func, easy->cb[CB_EASY_WRITE].data );
+			&easy->cb[ CB_EASY_WRITE ] );
 } /*}}}*/
 
 /* header callback for calling a perl callback */
@@ -322,7 +287,7 @@ cb_easy_header( const void *ptr, size_t size, size_t nmemb,
 	easy = (perl_curl_easy_t *) userptr;
 
 	return fwrite_wrapper( ptr, size, nmemb, easy,
-			easy->cb[CB_EASY_HEADER].func, easy->cb[CB_EASY_HEADER].data );
+			&easy->cb[ CB_EASY_HEADER ] );
 } /*}}}*/
 
 /* debug callback for calling a perl callback */
@@ -334,7 +299,7 @@ cb_easy_debug( CURL* handle, curl_infotype type, char *ptr, size_t size,
 	easy = (perl_curl_easy_t *) userptr;
 
 	return fwrite_wrapper2( ptr, size, easy,
-			easy->cb[CB_EASY_DEBUG].func, easy->cb[CB_EASY_DEBUG].data, type );
+			&easy->cb[ CB_EASY_DEBUG ], type );
 } /*}}}*/
 
 /* read callback for calling a perl callback */
@@ -346,11 +311,14 @@ cb_easy_read( void *ptr, size_t size, size_t nmemb, void *userptr )
 
 	size_t maxlen;
 	perl_curl_easy_t *easy;
+	callback_t *cb;
+
 	easy = (perl_curl_easy_t *) userptr;
 
-	maxlen = size*nmemb;
+	maxlen = size * nmemb;
+	cb = &easy->cb[ CB_EASY_READ ];
 
-	if ( easy->cb[CB_EASY_READ].func ) { /* We are doing a callback to perl */
+	if ( cb->func ) { /* We are doing a callback to perl */
 		char *data;
 		SV *sv;
 		STRLEN len;
@@ -364,8 +332,8 @@ cb_easy_read( void *ptr, size_t size, size_t nmemb, void *userptr )
 		/* $easy, $maxsize, $userdata */
 		mXPUSHs( newSVsv( easy->perl_self ) );
 		mXPUSHs( newSViv( maxlen ) );
-		if ( easy->cb[CB_EASY_READ].data )
-			mXPUSHs( newSVsv( easy->cb[CB_EASY_READ].data ) );
+		if ( cb->data )
+			mXPUSHs( newSVsv( cb->data ) );
 
 		PUTBACK;
 
@@ -375,8 +343,8 @@ cb_easy_read( void *ptr, size_t size, size_t nmemb, void *userptr )
 		 * However, it is set conditionally because we don't normally want to
 		 * grab $@ generated by internal eval {} blocks
 		 */
-		perl_call_sv( easy->cb[CB_EASY_READ].func, G_SCALAR | G_EVAL
-			| ( SvTRUE( ERRSV ) ? G_KEEPERR : 0 )  );
+		perl_call_sv( cb->func, G_SCALAR | G_EVAL
+			| ( SvTRUE( ERRSV ) ? G_KEEPERR : 0 ) );
 
 		SPAGAIN;
 
@@ -407,8 +375,8 @@ cb_easy_read( void *ptr, size_t size, size_t nmemb, void *userptr )
 	} else {
 		/* read input directly */
 		PerlIO *f;
-		if ( easy->cb[CB_EASY_READ].data ) { /* hope its a GLOB! */
-			f = IoIFP( sv_2io( easy->cb[CB_EASY_READ].data ) );
+		if ( cb->data ) { /* hope its a GLOB! */
+			f = IoIFP( sv_2io( cb->data ) );
 		} else { /* punt to stdin */
 			f = PerlIO_stdin();
 		}
@@ -426,21 +394,17 @@ cb_easy_progress( void *userptr, double dltotal, double dlnow,
 
 	perl_curl_easy_t *easy;
 	easy = (perl_curl_easy_t *) userptr;
+	callback_t *cb = &easy->cb[ CB_EASY_PROGRESS ];
 
 	SV *args[] = {
 		newSVsv( easy->perl_self ),
 		newSVnv( dltotal ),
 		newSVnv( dlnow ),
 		newSVnv( ultotal ),
-		newSVnv( ulnow ),
-		NULL
+		newSVnv( ulnow )
 	};
-	int argn = 5;
 
-	if ( easy->cb[CB_EASY_PROGRESS].data )
-		args[ argn++ ] = newSVsv( easy->cb[CB_EASY_PROGRESS].data );
-
-	return perl_curl_call( aTHX_ easy->cb[CB_EASY_PROGRESS].func, argn, args );
+	return PERL_CURL_CALL( cb, args );
 } /*}}}*/
 
 
@@ -533,10 +497,8 @@ curl_easy_duphandle( easy, base=HASHREF_BY_DEFAULT )
 		curl_easy_setopt( clone->handle, CURLOPT_ERRORBUFFER, clone->errbuf );
 
 		for( i = 0; i < CB_EASY_LAST; i++ ) {
-			perl_curl_easy_register_callback( aTHX_ clone,
-				&( clone->cb[i].func ), easy->cb[i].func );
-			perl_curl_easy_register_callback( aTHX_ clone,
-				&( clone->cb[i].data ), easy->cb[i].data );
+			SvREPLACE( clone->cb[i].func, easy->cb[i].func );
+			SvREPLACE( clone->cb[i].data, easy->cb[i].data );
 		};
 
 		/* clone strings and set */
@@ -601,63 +563,55 @@ curl_easy_setopt( easy, option, value )
 			/* SV * to user contexts for callbacks - any SV (glob,scalar,ref) */
 			case CURLOPT_FILE:
 			case CURLOPT_INFILE:
-				perl_curl_easy_register_callback( aTHX_ easy,
-					&( easy->cb[ callback_index( option ) ].data ), value );
+				SvREPLACE( easy->cb[ callback_index( option ) ].data, value );
 				break;
 			case CURLOPT_WRITEHEADER:
 				ret1 = curl_easy_setopt( easy->handle, CURLOPT_HEADERFUNCTION,
 					SvOK( value ) ? cb_easy_header : NULL );
 				ret2 = curl_easy_setopt( easy->handle, option,
 					SvOK( value ) ? easy : NULL );
-				perl_curl_easy_register_callback( aTHX_ easy,
-					&( easy->cb[ callback_index( option ) ].data ), value );
+				SvREPLACE( easy->cb[ callback_index( option ) ].data, value );
 				break;
 			case CURLOPT_PROGRESSDATA:
 				ret1 = curl_easy_setopt( easy->handle, CURLOPT_PROGRESSFUNCTION,
 					SvOK( value ) ? cb_easy_progress : NULL );
 				ret2 = curl_easy_setopt( easy->handle, option,
 					SvOK( value ) ? easy : NULL );
-				perl_curl_easy_register_callback( aTHX_ easy,
-					&( easy->cb[ callback_index( option ) ].data ), value );
+				SvREPLACE( easy->cb[ callback_index( option ) ].data, value );
 				break;
 			case CURLOPT_DEBUGDATA:
 				ret1 = curl_easy_setopt( easy->handle, CURLOPT_DEBUGFUNCTION,
 					SvOK( value ) ? cb_easy_debug : NULL );
 				ret2 = curl_easy_setopt( easy->handle, option,
 					SvOK( value ) ? easy : NULL );
-				perl_curl_easy_register_callback( aTHX_ easy,
-					&( easy->cb[ callback_index( option ) ].data ), value );
+				SvREPLACE( easy->cb[ callback_index( option ) ].data, value );
 				break;
 
 			/* SV * to a subroutine ref */
 			case CURLOPT_WRITEFUNCTION:
 			case CURLOPT_READFUNCTION:
-				perl_curl_easy_register_callback( aTHX_ easy,
-					&( easy->cb[ callback_index( option ) ].func ), value );
+				SvREPLACE( easy->cb[ callback_index( option ) ].func, value );
 				break;
 			case CURLOPT_HEADERFUNCTION:
 				ret1 = curl_easy_setopt( easy->handle, option,
 					SvOK( value ) ? cb_easy_header : NULL );
 				ret2 = curl_easy_setopt( easy->handle, CURLOPT_WRITEHEADER,
 					SvOK( value ) ? easy : NULL );
-				perl_curl_easy_register_callback( aTHX_ easy,
-					&( easy->cb[ callback_index( option ) ].func ), value );
+				SvREPLACE( easy->cb[ callback_index( option ) ].func, value );
 				break;
 			case CURLOPT_PROGRESSFUNCTION:
 				ret1 = curl_easy_setopt( easy->handle, option,
 					SvOK( value ) ? cb_easy_progress : NULL );
 				ret2 = curl_easy_setopt( easy->handle, CURLOPT_PROGRESSDATA,
 					SvOK( value ) ? easy : NULL );
-				perl_curl_easy_register_callback( aTHX_ easy,
-					&( easy->cb[ callback_index( option ) ].func ), value );
+				SvREPLACE( easy->cb[ callback_index( option ) ].func, value );
 				break;
 			case CURLOPT_DEBUGFUNCTION:
 				ret1 = curl_easy_setopt( easy->handle, option,
 					SvOK( value ) ? cb_easy_debug : NULL );
 				ret2 = curl_easy_setopt( easy->handle, CURLOPT_DEBUGDATA,
 					SvOK( value ) ? easy : NULL );
-				perl_curl_easy_register_callback( aTHX_ easy,
-					&( easy->cb[ callback_index( option ) ].func ), value );
+				SvREPLACE( easy->cb[ callback_index( option ) ].func, value );
 				break;
 
 			/* slist cases */
@@ -676,15 +630,9 @@ curl_easy_setopt( easy, option, value )
 				ret1 = perl_curl_easy_setoptslist( aTHX_ easy, option, value, 1 );
 				break;
 
-			/* Pass in variable name for storing error messages. Yuck. */
 			/* XXX: fix this */
 			case CURLOPT_ERRORBUFFER:
-			{
-				STRLEN dummy;
-				if ( easy->errbufvarname )
-					free( easy->errbufvarname );
-				easy->errbufvarname = strdup( (char *) SvPV( value, dummy ) );
-			};
+				croak( "CURLOPT_ERRORBUFFER is not supported, use $easy->errbuf instead" );
 				break;
 
 			/* tell curl to redirect STDERR - value should be a glob */
@@ -888,7 +836,7 @@ curl_easy_send( easy, buffer )
 		RETVAL
 
 
-void
+size_t
 curl_easy_recv( easy, buffer, length )
 	WWW::CurlOO::Easy easy
 	SV *buffer
@@ -906,9 +854,12 @@ curl_easy_recv( easy, buffer, length )
 		sv_setpvn( buffer, tmpbuf, out_len );
 
 		Safefree( tmpbuf );
+		RETVAL = out_len;
 #else
 		croak( "curl_easy_recv() not available in curl before 7.18.2\n" );
 #endif
+	OUTPUT:
+		RETVAL
 
 
 void
@@ -925,7 +876,11 @@ curl_easy_strerror( ... )
 		const char *errstr;
 	CODE:
 		if ( items < 1 || items > 2 )
-			croak_xs_usage(cv,  "[easy], errnum");
+#ifdef croak_xs_usage
+			croak_xs_usage(cv, "[easy], errnum");
+#else
+			croak( "Usage: WWW::CurlOO::Easy::strerror( [easy], errnum )" );
+#endif
 		errstr = curl_easy_strerror( SvIV( ST( items - 1 ) ) );
 		RETVAL = newSVpv( errstr, 0 );
 	OUTPUT:

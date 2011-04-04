@@ -24,24 +24,6 @@ struct perl_curl_multi_s {
 	callback_t cb[ CB_MULTI_LAST ];
 };
 
-static void
-perl_curl_multi_register_callback( pTHX_ perl_curl_multi_t *multi, SV **callback, SV *function )
-/*{{{*/ {
-	if ( function && SvOK( function ) ) {
-		/* FIXME: need to check the ref-counts here */
-		if ( *callback == NULL ) {
-			*callback = newSVsv( function );
-		} else {
-			SvSetSV( *callback, function );
-		}
-	} else {
-		if ( *callback != NULL ) {
-			sv_2mortal( *callback );
-			*callback = NULL;
-		}
-	}
-} /*}}}*/
-
 /* make a new multi */
 static perl_curl_multi_t *
 perl_curl_multi_new( void )
@@ -81,20 +63,16 @@ cb_multi_socket( CURL *easy_handle, curl_socket_t s, int what, void *userptr,
 	multi = (perl_curl_multi_t *) userptr;
 	(void) curl_easy_getinfo( easy_handle, CURLINFO_PRIVATE, (void *) &easy );
 
-	/* $easy, $socket, $what, $userdata */
+	/* $easy, $socket, $what, [$socketdata = undef], $userdata */
 	/* XXX: add $socketdata */
 	SV *args[] = {
 		newSVsv( easy->perl_self ),
 		newSVuv( s ),
 		newSViv( what ),
-		NULL
+		newSVsv( &PL_sv_undef ) /* XXX: socketdata, unsupported */
 	};
-	int argn = 3;
 
-	if ( multi->cb[CB_MULTI_SOCKET].data )
-		args[ argn++ ] = newSVsv( multi->cb[CB_MULTI_SOCKET].data );
-
-	return perl_curl_call( aTHX_ multi->cb[CB_MULTI_SOCKET].func, argn, args );
+	return PERL_CURL_CALL( &multi->cb[ CB_MULTI_SOCKET ], args );
 } /*}}}*/
 
 static int
@@ -108,15 +86,10 @@ cb_multi_timer( CURLM *multi_handle, long timeout_ms, void *userptr )
 	/* $multi, $timeout, $userdata */
 	SV *args[] = {
 		newSVsv( multi->perl_self ),
-		newSViv( timeout_ms ),
-		NULL
+		newSViv( timeout_ms )
 	};
-	int argn = 2;
 
-	if ( multi->cb[CB_MULTI_TIMER].data )
-		args[ argn++ ] = newSVsv( multi->cb[CB_MULTI_TIMER].data );
-
-	return perl_curl_call( aTHX_ multi->cb[CB_MULTI_TIMER].func, argn, args );
+	return PERL_CURL_CALL( &multi->cb[ CB_MULTI_TIMER ], args );
 } /*}}}*/
 
 
@@ -296,29 +269,26 @@ curl_multi_setopt( multi, option, value )
 		CURLMcode ret1, ret2 = CURLM_OK;
 	CODE:
 		switch ( option ) {
-			case CURLMOPT_SOCKETFUNCTION:
 			case CURLMOPT_SOCKETDATA:
+				SvREPLACE( multi->cb[ CB_MULTI_SOCKET ].data, value );
+				break;
+
+			case CURLMOPT_SOCKETFUNCTION:
+				SvREPLACE( multi->cb[ CB_MULTI_SOCKET ].func, value );
 				ret2 = curl_multi_setopt( multi->handle, CURLMOPT_SOCKETFUNCTION,
 					SvOK( value ) ? cb_multi_socket : NULL );
-				ret1 = curl_multi_setopt( multi->handle, CURLMOPT_SOCKETDATA,
-					SvOK( value ) ? multi : NULL );
-				perl_curl_multi_register_callback( aTHX_ multi,
-					option == CURLMOPT_SOCKETDATA ?
-						&( multi->cb[CB_MULTI_SOCKET].data ) :
-						&( multi->cb[CB_MULTI_SOCKET].func ),
-					value );
+				ret1 = curl_multi_setopt( multi->handle, CURLMOPT_SOCKETDATA, multi );
 				break;
-			case CURLMOPT_TIMERFUNCTION:
+
 			case CURLMOPT_TIMERDATA:
+				SvREPLACE( multi->cb[ CB_MULTI_TIMER ].data, value );
+				break;
+
+			case CURLMOPT_TIMERFUNCTION:
+				SvREPLACE( multi->cb[ CB_MULTI_TIMER ].func, value );
 				ret2 = curl_multi_setopt( multi->handle, CURLMOPT_TIMERFUNCTION,
 					SvOK( value ) ? cb_multi_timer : NULL );
-				ret1 = curl_multi_setopt( multi->handle, CURLMOPT_TIMERDATA,
-					SvOK( value ) ? multi : NULL );
-				perl_curl_multi_register_callback( aTHX_ multi,
-					option == CURLMOPT_TIMERDATA ?
-						&( multi->cb[CB_MULTI_TIMER].data ) :
-						&( multi->cb[CB_MULTI_TIMER].func ),
-					value );
+				ret1 = curl_multi_setopt( multi->handle, CURLMOPT_TIMERDATA, multi );
 				break;
 
 			/* default cases */
@@ -402,7 +372,11 @@ curl_multi_strerror( ... )
 		const char *errstr;
 	CODE:
 		if ( items < 1 || items > 2 )
-			croak_xs_usage(cv,  "[multi], errnum");
+#ifdef croak_xs_usage
+			croak_xs_usage(cv, "[multi], errnum");
+#else
+			croak( "Usage: WWW::CurlOO::Multi::strerror( [multi], errnum )" );
+#endif
 		errstr = curl_multi_strerror( SvIV( ST( items - 1 ) ) );
 		RETVAL = newSVpv( errstr, 0 );
 	OUTPUT:

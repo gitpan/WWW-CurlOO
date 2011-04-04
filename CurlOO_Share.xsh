@@ -25,25 +25,6 @@ struct perl_curl_share_s {
 };
 
 
-static void
-perl_curl_share_register_callback( pTHX_ perl_curl_share_t *share, SV **callback,
-		SV *function )
-{
-	if ( function && SvOK( function ) ) {
-		/* FIXME: need to check the ref-counts here */
-		if ( *callback == NULL ) {
-			*callback = newSVsv( function );
-		} else {
-			SvSetSV( *callback, function );
-		}
-	} else {
-		if ( *callback != NULL ) {
-			sv_2mortal( *callback );
-			*callback = NULL;
-		}
-	}
-}
-
 /* make a new share */
 static perl_curl_share_t *
 perl_curl_share_new( void )
@@ -82,19 +63,14 @@ cb_share_lock( CURL *easy_handle, curl_lock_data data, curl_lock_access locktype
 	share = (perl_curl_share_t *) userptr;
 	(void) curl_easy_getinfo( easy_handle, CURLINFO_PRIVATE, (void *) &easy );
 
-	/* $easy, $data, $locktype, $userdata */
+	/* $easy, $data, $locktype, [$userdata] */
 	SV *args[] = {
 		newSVsv( easy->perl_self ),
 		newSViv( data ),
-		newSViv( locktype ),
-		NULL
+		newSViv( locktype )
 	};
-	int argn = 3;
 
-	if ( share->cb[CB_SHARE_LOCK].data )
-		args[ argn++ ] = newSVsv( share->cb[CB_SHARE_LOCK].data );
-
-	perl_curl_call( aTHX_ share->cb[CB_SHARE_LOCK].func, argn, args );
+	PERL_CURL_CALL( &share->cb[ CB_SHARE_LOCK ], args );
 	return;
 }
 
@@ -105,22 +81,19 @@ cb_share_unlock( CURL *easy_handle, curl_lock_data data, void *userptr )
 
 	perl_curl_share_t *share;
 	perl_curl_easy_t *easy;
+	callback_t *cb;
 
 	share = (perl_curl_share_t *) userptr;
 	(void) curl_easy_getinfo( easy_handle, CURLINFO_PRIVATE, (void *) &easy );
+	cb = &share->cb[ CB_SHARE_UNLOCK ];
 
-	/* $easy, $data, $userdata */
+	/* $easy, $data, [$userdata] */
 	SV *args[] = {
 		newSVsv( easy->perl_self ),
-		newSViv( data ),
-		NULL,
+		newSViv( data )
 	};
-	int argn = 2;
 
-	if ( share->cb[CB_SHARE_LOCK].data )
-		args[ argn++ ] = newSVsv( share->cb[CB_SHARE_LOCK].data );
-
-	perl_curl_call( aTHX_ share->cb[CB_SHARE_UNLOCK].data, argn, args );
+	PERL_CURL_CALL( &share->cb[ CB_SHARE_UNLOCK ], args );
 	return;
 }
 
@@ -172,21 +145,19 @@ curl_share_setopt( share, option, value )
 				ret1 = curl_share_setopt( share->handle,
 					CURLSHOPT_LOCKFUNC, SvOK( value ) ? cb_share_lock : NULL );
 				ret2 = curl_share_setopt( share->handle,
-					CURLSHOPT_USERDATA, SvOK( value ) ? share : NULL );
-				perl_curl_share_register_callback( aTHX_ share,
-					&(share->cb[CB_SHARE_LOCK].func), value );
+					CURLSHOPT_USERDATA, share );
+				SvREPLACE( share->cb[ CB_SHARE_LOCK ].func, value );
 				break;
 			case CURLSHOPT_UNLOCKFUNC:
 				ret1 = curl_share_setopt( share->handle,
 					CURLSHOPT_UNLOCKFUNC, SvOK( value ) ? cb_share_unlock : NULL );
 				ret2 = curl_share_setopt( share->handle,
-					CURLSHOPT_USERDATA, SvOK( value ) ? share : NULL );
-				perl_curl_share_register_callback( aTHX_ share,
-					&(share->cb[CB_SHARE_UNLOCK].func), value );
+					CURLSHOPT_USERDATA, share );
+				SvREPLACE( share->cb[ CB_SHARE_UNLOCK ].func, value );
 				break;
 			case CURLSHOPT_USERDATA:
-				perl_curl_share_register_callback( aTHX_ share,
-					&(share->cb[CB_SHARE_LOCK].data), value );
+				SvREPLACE( share->cb[ CB_SHARE_LOCK ].data, value );
+				SvREPLACE( share->cb[ CB_SHARE_UNLOCK ].data, value );
 				break;
 			case CURLSHOPT_SHARE:
 			case CURLSHOPT_UNSHARE:
@@ -207,7 +178,11 @@ curl_share_strerror( ... )
 		const char *errstr;
 	CODE:
 		if ( items < 1 || items > 2 )
-			croak_xs_usage(cv,  "[share], errnum");
+#ifdef croak_xs_usage
+			croak_xs_usage(cv, "[share], errnum");
+#else
+			croak( "Usage: WWW::CurlOO::Share::strerror( [share], errnum )" );
+#endif
 		errstr = curl_share_strerror( SvIV( ST( items - 1 ) ) );
 		RETVAL = newSVpv( errstr, 0 );
 	OUTPUT:

@@ -8,7 +8,7 @@ use File::Temp qw/tempfile/;
 BEGIN { use_ok( 'WWW::CurlOO::Easy' ); }
 use WWW::CurlOO::Easy qw(:constants);
 
-my $url = $ENV{CURL_TEST_URL} || "http://www.google.com";
+my $url = $ENV{CURL_TEST_URL} || "http://rsget.pl/tools/userscript/config";
 
 
 # Init the curl session
@@ -41,7 +41,7 @@ $curl->setopt(CURLOPT_COOKIEFILE, "");
 eval { $curl->perform(); };
 
 ok( !$@, "Curl return code ok");
-diag("An error happened: $@ --".$curl->errbuf."\n") if ($@);
+diag("An error happened: $@ -- ".$curl->errbuf."\n") if ($@);
 my $bytes = $curl->getinfo(CURLINFO_SIZE_DOWNLOAD);
 ok( $bytes, "getinfo returns non-zero number of bytes");
 my $realurl = $curl->getinfo(CURLINFO_EFFECTIVE_URL);
@@ -49,14 +49,9 @@ ok( $realurl, "getinfo returns CURLINFO_EFFECTIVE_URL");
 my $httpcode = $curl->getinfo(CURLINFO_HTTP_CODE);
 ok( $httpcode, "getinfo returns CURLINFO_HTTP_CODE");
 
-SKIP: {
-    skip "Only testing cookies against google.com", 2 unless $url eq "http://www.google.com";
-    my $cookielist_const = eval { CURLINFO_COOKIELIST() };
-    skip "libcurl doesn't have the CURLINFO_COOKIELIST constant", 2 unless $cookielist_const;
-    my $cookies = $curl->getinfo($cookielist_const);
-    is(ref $cookies, "ARRAY", "Returned array reference");
-    ok(@$cookies > 0, "Got 1 or more cookies");
-}
+my $cookies = $curl->getinfo( CURLINFO_COOKIELIST );
+is(ref $cookies, "ARRAY", "Returned array reference");
+ok(@$cookies > 0, "Got 1 or more cookies");
 
 #diag ("Bytes: $bytes");
 #diag ("realurl: $realurl");
