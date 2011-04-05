@@ -165,49 +165,39 @@ void
 curl_multi_info_read( multi )
 	WWW::CurlOO::Multi multi
 	PREINIT:
-		CURL *easy_handle = NULL;
-		CURLcode res;
-		WWW__CurlOO__Easy easy;
 		int queue;
 		CURLMsg *msg;
 	PPCODE:
-		/* {{{ */
 		multi->perl_self = sv_2mortal( newSVsv( ST(0) ) );
 		CLEAR_ERRSV();
 		while ( (msg = curl_multi_info_read( multi->handle, &queue ) ) ) {
-			if ( msg->msg == CURLMSG_DONE ) {
-				easy_handle = msg->easy_handle;
-				res = msg->data.result;
-				break;
+			/* most likely CURLMSG_DONE */
+			if ( msg->msg != CURLMSG_NONE && msg->msg != CURLMSG_LAST ) {
+				WWW__CurlOO__Easy easy;
+				curl_easy_getinfo( msg->easy_handle,
+					CURLINFO_PRIVATE, (void *) &easy );
+
+				EXTEND( SP, 3 );
+				mPUSHs( newSVsv( easy->perl_self ) );
+				mPUSHs( newSViv( msg->data.result ) );
+				mPUSHs( newSViv( msg->msg ) );
+
+				/* cannot rethrow errors, because we want to make sure we
+				 * return the easy, but $@ should be set */
+
+				XSRETURN( 3 );
 			}
+
+			/* rethrow errors */
+			if ( SvTRUE( ERRSV ) )
+				croak( NULL );
 		};
-		/* TODO: do not automatically remove the handle, because exceptions can mess
-		 * things up */
-		if ( easy_handle ) {
-			CURLMcode ret;
-			curl_easy_getinfo( easy_handle, CURLINFO_PRIVATE, (void *) &easy );
-			ret = curl_multi_remove_handle( multi->handle, easy_handle );
 
-			MULTI_DIE( ret );
+		/* rethrow errors */
+		if ( SvTRUE( ERRSV ) )
+			croak( NULL );
 
-			/* rethrow errors */
-			if ( SvTRUE( ERRSV ) )
-				croak( NULL );
-
-			EXTEND( SP, 2 );
-			mPUSHs( easy->perl_self );
-			mPUSHs( newSViv( res ) );
-
-			easy->perl_self = NULL;
-			easy->multi = NULL;
-		} else {
-			/* rethrow errors */
-			if ( SvTRUE( ERRSV ) )
-				croak( NULL );
-			XSRETURN_EMPTY;
-		}
-
-		/* }}} */
+		XSRETURN_EMPTY;
 
 
 void
@@ -216,7 +206,8 @@ curl_multi_fdset( multi )
 	PREINIT:
 		CURLMcode ret;
 		fd_set fdread, fdwrite, fdexcep;
-		int maxfd, i, vecsize;
+		int maxfd, i;
+		int readsize, writesize, excepsize;
 		unsigned char readset[ sizeof( fd_set ) ] = { 0 };
 		unsigned char writeset[ sizeof( fd_set ) ] = { 0 };
 		unsigned char excepset[ sizeof( fd_set ) ] = { 0 };
@@ -230,22 +221,28 @@ curl_multi_fdset( multi )
 			&fdread, &fdwrite, &fdexcep, &maxfd );
 		MULTI_DIE( ret );
 
-		vecsize = ( maxfd + 8 ) / 8;
+		readsize = writesize = excepsize = 0;
 
 		if ( maxfd != -1 ) {
 			for ( i = 0; i <= maxfd; i++ ) {
-				if ( FD_ISSET( i, &fdread ) )
+				if ( FD_ISSET( i, &fdread ) ) {
+					readsize = i / 8 + 1;
 					readset[ i / 8 ] |= 1 << ( i % 8 );
-				if ( FD_ISSET( i, &fdwrite ) )
+				}
+				if ( FD_ISSET( i, &fdwrite ) ) {
+					writesize = i / 8 + 1;
 					writeset[ i / 8 ] |= 1 << ( i % 8 );
-				if ( FD_ISSET( i, &fdexcep ) )
+				}
+				if ( FD_ISSET( i, &fdexcep ) ) {
+					excepsize = i / 8 + 1;
 					excepset[ i / 8 ] |= 1 << ( i % 8 );
+				}
 			}
 		}
 		EXTEND( SP, 3 );
-		mPUSHs( newSVpvn( (char *) readset, vecsize ) );
-		mPUSHs( newSVpvn( (char *) writeset, vecsize ) );
-		mPUSHs( newSVpvn( (char *) excepset, vecsize ) );
+		mPUSHs( newSVpvn( (char *) readset, readsize ) );
+		mPUSHs( newSVpvn( (char *) writeset, writesize ) );
+		mPUSHs( newSVpvn( (char *) excepset, excepsize ) );
 		/* }}} */
 
 
@@ -269,7 +266,7 @@ curl_multi_setopt( multi, option, value )
 	int option
 	SV *value
 	PREINIT:
-		CURLMcode ret1, ret2 = CURLM_OK;
+		CURLMcode ret1 = CURLM_OK, ret2 = CURLM_OK;
 	CODE:
 		switch ( option ) {
 			case CURLMOPT_SOCKETDATA:
