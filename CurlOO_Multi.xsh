@@ -97,7 +97,7 @@ cb_multi_timer( CURLM *multi_handle, long timeout_ms, void *userptr )
 	STMT_START {				\
 		CURLMcode code = (ret);	\
 		if ( code != CURLM_OK )	\
-			die_dual( code, curl_multi_strerror( code ) ); \
+			die_code( "Multi", code ); \
 	} STMT_END
 
 
@@ -194,10 +194,12 @@ curl_multi_info_read( multi )
 			if ( SvTRUE( ERRSV ) )
 				croak( NULL );
 
-			mXPUSHs( easy->perl_self );
+			EXTEND( SP, 2 );
+			mPUSHs( easy->perl_self );
+			mPUSHs( newSViv( res ) );
+
 			easy->perl_self = NULL;
 			easy->multi = NULL;
-			mXPUSHs( newSViv( res ) );
 		} else {
 			/* rethrow errors */
 			if ( SvTRUE( ERRSV ) )
@@ -240,9 +242,10 @@ curl_multi_fdset( multi )
 					excepset[ i / 8 ] |= 1 << ( i % 8 );
 			}
 		}
-		XPUSHs( sv_2mortal( newSVpvn( (char *) readset, vecsize ) ) );
-		XPUSHs( sv_2mortal( newSVpvn( (char *) writeset, vecsize ) ) );
-		XPUSHs( sv_2mortal( newSVpvn( (char *) excepset, vecsize ) ) );
+		EXTEND( SP, 3 );
+		mPUSHs( newSVpvn( (char *) readset, vecsize ) );
+		mPUSHs( newSVpvn( (char *) writeset, vecsize ) );
+		mPUSHs( newSVpvn( (char *) excepset, vecsize ) );
 		/* }}} */
 
 
