@@ -101,14 +101,14 @@ cb_multi_timer( CURLM *multi_handle, long timeout_ms, void *userptr )
 	} STMT_END
 
 
-MODULE = WWW::CurlOO	PACKAGE = WWW::CurlOO::Multi	PREFIX = curl_multi_
+MODULE = WWW::CurlOO	PACKAGE = WWW::CurlOO::Multi
 
 INCLUDE: const-multi-xs.inc
 
 PROTOTYPES: ENABLE
 
 void
-curl_multi_new( sclass="WWW::CurlOO::Multi", base=HASHREF_BY_DEFAULT )
+new( sclass="WWW::CurlOO::Multi", base=HASHREF_BY_DEFAULT )
 	const char *sclass
 	SV *base
 	PREINIT:
@@ -128,7 +128,7 @@ curl_multi_new( sclass="WWW::CurlOO::Multi", base=HASHREF_BY_DEFAULT )
 
 
 void
-curl_multi_add_handle( multi, easy )
+add_handle( multi, easy )
 	WWW::CurlOO::Multi multi
 	WWW::CurlOO::Easy easy
 	PREINIT:
@@ -141,7 +141,7 @@ curl_multi_add_handle( multi, easy )
 		MULTI_DIE( ret );
 
 void
-curl_multi_remove_handle( multi, easy )
+remove_handle( multi, easy )
 	WWW::CurlOO::Multi multi
 	WWW::CurlOO::Easy easy
 	PREINIT:
@@ -162,7 +162,7 @@ curl_multi_remove_handle( multi, easy )
 
 
 void
-curl_multi_info_read( multi )
+info_read( multi )
 	WWW::CurlOO::Multi multi
 	PREINIT:
 		int queue;
@@ -201,7 +201,7 @@ curl_multi_info_read( multi )
 
 
 void
-curl_multi_fdset( multi )
+fdset( multi )
 	WWW::CurlOO::Multi multi
 	PREINIT:
 		CURLMcode ret;
@@ -247,7 +247,7 @@ curl_multi_fdset( multi )
 
 
 long
-curl_multi_timeout( multi )
+timeout( multi )
 	WWW::CurlOO::Multi multi
 	PREINIT:
 		long timeout;
@@ -261,7 +261,7 @@ curl_multi_timeout( multi )
 		RETVAL
 
 void
-curl_multi_setopt( multi, option, value )
+setopt( multi, option, value )
 	WWW::CurlOO::Multi multi
 	int option
 	SV *value
@@ -280,6 +280,9 @@ curl_multi_setopt( multi, option, value )
 				ret1 = curl_multi_setopt( multi->handle, CURLMOPT_SOCKETDATA, multi );
 				break;
 
+			/* introduced in 7.16.0 */
+#ifdef CURLMOPT_TIMERDATA
+#ifdef CURLMOPT_TIMERFUNCTION
 			case CURLMOPT_TIMERDATA:
 				SvREPLACE( multi->cb[ CB_MULTI_TIMER ].data, value );
 				break;
@@ -290,6 +293,8 @@ curl_multi_setopt( multi, option, value )
 					SvOK( value ) ? cb_multi_timer : NULL );
 				ret1 = curl_multi_setopt( multi->handle, CURLMOPT_TIMERDATA, multi );
 				break;
+#endif
+#endif
 
 			/* default cases */
 			default:
@@ -307,7 +312,7 @@ curl_multi_setopt( multi, option, value )
 
 
 int
-curl_multi_perform( multi )
+perform( multi )
 	WWW::CurlOO::Multi multi
 	PREINIT:
 		int remaining;
@@ -331,7 +336,7 @@ curl_multi_perform( multi )
 
 
 int
-curl_multi_socket_action( multi, sockfd=CURL_SOCKET_BAD, ev_bitmask=0 )
+socket_action( multi, sockfd=CURL_SOCKET_BAD, ev_bitmask=0 )
 	WWW::CurlOO::Multi multi
 	int sockfd
 	int ev_bitmask
@@ -358,7 +363,7 @@ curl_multi_socket_action( multi, sockfd=CURL_SOCKET_BAD, ev_bitmask=0 )
 
 
 void
-curl_multi_DESTROY( multi )
+DESTROY( multi )
 	WWW::CurlOO::Multi multi
 	CODE:
 		/* TODO: remove all associated easy handles */
@@ -366,7 +371,7 @@ curl_multi_DESTROY( multi )
 
 
 SV *
-curl_multi_strerror( ... )
+strerror( ... )
 	PROTOTYPE: $;$
 	PREINIT:
 		const char *errstr;

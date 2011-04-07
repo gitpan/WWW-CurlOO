@@ -3,11 +3,10 @@ use strict;
 use warnings;
 
 use WWW::CurlOO ();
-use Exporter ();
+use Exporter 'import';
 
 *VERSION = \*WWW::CurlOO::VERSION;
 
-our @ISA = qw(Exporter);
 our @EXPORT_OK = grep /^CURL/, keys %{WWW::CurlOO::Share::};
 our %EXPORT_TAGS = ( constants => \@EXPORT_OK );
 
@@ -52,27 +51,37 @@ exported upon request.
 
  use WWW::CurlOO::Share qw(:constants);
 
-=head1 METHODS
+=head2 CONSTRUCTOR
 
 =over
 
-=item CLASS->new( [BASE] )
+=item new( [BASE] )
 
 Creates new WWW::CurlOO::Share object. If BASE is specified it will be used
 as object base, otherwise an empty hash will be used. BASE must be a valid
 reference which has not been blessed already. It will not be used by the
 object.
 
+ my $share = WWW::CurlOO::Share->new( [qw(my very private data)] );
+
 Calls L<curl_share_init(3)>.
 
-=item OBJECT->setopt( OPTION, VALUE )
+=back
+
+=head2 METHODS
+
+=over
+
+=item setopt( OPTION, VALUE )
 
 Set an option. OPTION is a numeric value, use one of CURLSHOPT_* constants.
 VALUE depends on whatever that option expects.
 
+ $share->setopt( CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE );
+
 Calls L<curl_share_setopt(3)>.
 
-=item OBJECT->DESTROY( )
+=item DESTROY( )
 
 Cleans up. It should not be called manually.
 
@@ -80,7 +89,9 @@ Calls L<curl_share_cleanup(3)>.
 
 =back
 
-=head1 FUNCTIONS
+=head2 FUNCTIONS
+
+None of those functions are exported, you must use fully qualified names.
 
 =over
 
@@ -88,9 +99,58 @@ Calls L<curl_share_cleanup(3)>.
 
 Return a string for error code CODE.
 
+ my $message = WWW::CurlOO::Share::strerror( CURLSHE_BAD_OPTION );
+
 See L<curl_share_strerror(3)> for more info.
 
 =back
+
+=head2 CONSTANTS
+
+=over
+
+=item CURLSHOPT_*
+
+Values for setopt().
+
+=item CURL_LOCK_ACCESS_*
+
+Values passed to lock callbacks.
+
+=item CURL_LOCK_DATA_*
+
+Values passed to lock and unlock callbacks.
+
+=back
+
+=head2 CALLBACKS
+
+Reffer to libcurl documentation for more detailed info on each of those.
+
+=over
+
+=item CURLSHOPT_LOCKFUNC ( CURLSHOPT_USERDATA )
+
+Lock callback receives 4 arguments: easy object, lock data, lock access,
+and CURLSHOPT_USERDATA value.
+
+ sub cb_lock {
+     my ( $easy, $data, $locktype, $uservar ) = @_;
+     # ... lock ...
+ }
+
+=item CURLSHOPT_UNLOCKFUNC ( CURLSHOPT_USERDATA )
+
+Unlock callback receives 3 arguments: easy object, lock data, and
+CURLSHOPT_USERDATA value.
+
+ sub cb_unlock {
+     my ( $easy, $data, $uservar ) = @_;
+     # ... unlock ...
+ }
+
+=back
+
 
 =head1 SEE ALSO
 

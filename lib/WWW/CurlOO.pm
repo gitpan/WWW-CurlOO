@@ -3,19 +3,18 @@ package WWW::CurlOO;
 use strict;
 use warnings;
 use XSLoader ();
-use Exporter ();
+use Exporter 'import';
 
 our $VERSION;
 BEGIN {
-	$VERSION = '0.09';
+	$VERSION = '0.10';
 	XSLoader::load( __PACKAGE__, $VERSION );
 }
 END {
 	_global_cleanup();
 }
 
-our @ISA = qw(Exporter);
-our @EXPORT_OK = grep /^CURL/, keys %{WWW::CurlOO::};
+our @EXPORT_OK = grep /^(?:LIB)?CURL/, keys %{WWW::CurlOO::};
 our %EXPORT_TAGS = ( constants => \@EXPORT_OK );
 
 1;
@@ -56,16 +55,20 @@ To perform any request you want L<WWW::CurlOO::Easy>.
 
 =head2 FUNCTIONS
 
+None of those functions are exported, you must use fully qualified names.
+
 =over
 
 =item version
 
-Returns libcurl version string. See L<curl_version(3)> for more info.
+Returns libcurl version string.
 
  my $libcurl_verstr = WWW::CurlOO::version();
  # prints something like:
  # libcurl/7.21.4 GnuTLS/2.10.4 zlib/1.2.5 c-ares/1.7.4 libidn/1.20 libssh2/1.2.7 librtmp/2.3
  print $libcurl_verstr;
+
+Calls L<curl_version(3)> function.
 
 =item version_info
 
@@ -110,6 +113,22 @@ Decodes date string returning its numerical value, in seconds.
  # Sun Nov  6 08:49:37 1994
 
 See L<curl_getdate(3)> for more info on supported input formats.
+
+=back
+
+=head2 CONSTANTS
+
+=over
+
+=item CURL_VERSION_* and CURLVERSION_*
+
+Can be used for decoding version_info() values. L<curl_version_info(3)>
+
+=item LIBCURL_*
+
+Can be used for determining buildtime libcurl version. Some WWW::CurlOO
+features will not be available if it was built with older libcurl, even if
+runtime libcurl version has necessary features.
 
 =back
 

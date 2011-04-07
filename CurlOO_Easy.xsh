@@ -357,7 +357,7 @@ cb_easy_read( void *ptr, size_t size, size_t nmemb, void *userptr )
 		} else {
 			/* TODO: allow only scalar *refs* as output values */
 			/* if value is not a ref, check for
-			 * CURL_READFUNC_ABORT or CURL_READFUNC_PAUSE
+			 * CURL_READFUNC_ABORT or CUR#_READFUNC_PAUSE
 			 */
 			sv = POPs;
 			data = SvPV( sv, len );
@@ -417,14 +417,14 @@ cb_easy_progress( void *userptr, double dltotal, double dlnow,
 	} STMT_END
 
 
-MODULE = WWW::CurlOO	PACKAGE = WWW::CurlOO::Easy	PREFIX = curl_easy_
+MODULE = WWW::CurlOO	PACKAGE = WWW::CurlOO::Easy
 
 INCLUDE: const-easy-xs.inc
 
 PROTOTYPES: ENABLE
 
 void
-curl_easy_new( sclass="WWW::CurlOO::Easy", base=HASHREF_BY_DEFAULT )
+new( sclass="WWW::CurlOO::Easy", base=HASHREF_BY_DEFAULT )
 	const char *sclass
 	SV *base
 	PREINIT:
@@ -455,7 +455,7 @@ curl_easy_new( sclass="WWW::CurlOO::Easy", base=HASHREF_BY_DEFAULT )
 
 
 void
-curl_easy_duphandle( easy, base=HASHREF_BY_DEFAULT )
+duphandle( easy, base=HASHREF_BY_DEFAULT )
 	WWW::CurlOO::Easy easy
 	SV *base
 	PREINIT:
@@ -553,7 +553,7 @@ curl_easy_duphandle( easy, base=HASHREF_BY_DEFAULT )
 
 
 void
-curl_easy_setopt( easy, option, value )
+setopt( easy, option, value )
 	WWW::CurlOO::Easy easy
 	int option
 	SV *value
@@ -713,7 +713,7 @@ curl_easy_setopt( easy, option, value )
 
 
 void
-curl_easy_pushopt( easy, option, value )
+pushopt( easy, option, value )
 	WWW::CurlOO::Easy easy
 	int option
 	SV *value
@@ -725,7 +725,7 @@ curl_easy_pushopt( easy, option, value )
 
 
 void
-curl_easy_perform( easy )
+perform( easy )
 	WWW::CurlOO::Easy easy
 	PREINIT:
 		CURLcode ret;
@@ -742,7 +742,7 @@ curl_easy_perform( easy )
 
 
 SV *
-curl_easy_getinfo( easy, option )
+getinfo( easy, option )
 	WWW::CurlOO::Easy easy
 	int option
 	PREINIT:
@@ -801,20 +801,21 @@ curl_easy_getinfo( easy, option )
 		RETVAL
 
 char *
-curl_easy_error( easy )
+error( easy )
 	WWW::CurlOO::Easy easy
 	CODE:
 		RETVAL = easy->errbuf;
 	OUTPUT:
 		RETVAL
 
+
+#if LIBCURL_VERSION_NUM >= 0x071202
+
 size_t
-curl_easy_send( easy, buffer )
+send( easy, buffer )
 	WWW::CurlOO::Easy easy
 	SV *buffer
 	CODE:
-		/* {{{ */
-#if LIBCURL_VERSION_NUM >= 0x071202
 		CURLcode ret;
 		STRLEN len;
 		const char *pv;
@@ -828,22 +829,16 @@ curl_easy_send( easy, buffer )
 		EASY_DIE( ret );
 
 		RETVAL = out_len;
-#else
-		croak( "curl_easy_send() not available in curl before 7.18.2\n" );
-		RETVAL = 0;
-#endif
-		/* }}} */
 	OUTPUT:
 		RETVAL
 
 
 size_t
-curl_easy_recv( easy, buffer, length )
+recv( easy, buffer, length )
 	WWW::CurlOO::Easy easy
 	SV *buffer
 	size_t length
 	CODE:
-#if LIBCURL_VERSION_NUM >= 0x071202
 		CURLcode ret;
 		size_t out_len;
 		char *tmpbuf;
@@ -852,26 +847,29 @@ curl_easy_recv( easy, buffer, length )
 		ret = curl_easy_recv( easy->handle, tmpbuf, length, &out_len );
 		EASY_DIE( ret );
 
-		sv_setpvn( buffer, tmpbuf, out_len );
+		if ( SvOK( buffer ) ) {
+			sv_catpvn( buffer, tmpbuf, out_len );
+		} else {
+			sv_setpvn( buffer, tmpbuf, out_len );
+		}
 
 		Safefree( tmpbuf );
 		RETVAL = out_len;
-#else
-		croak( "curl_easy_recv() not available in curl before 7.18.2\n" );
-#endif
 	OUTPUT:
 		RETVAL
 
+#endif
+
 
 void
-curl_easy_DESTROY( easy )
+DESTROY( easy )
 	WWW::CurlOO::Easy easy
 	CODE:
 		perl_curl_easy_delete( aTHX_ easy );
 
 
 SV *
-curl_easy_strerror( ... )
+strerror( ... )
 	PROTOTYPE: $;$
 	PREINIT:
 		const char *errstr;

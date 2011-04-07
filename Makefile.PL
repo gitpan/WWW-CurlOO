@@ -22,7 +22,15 @@ if ( $curl{libs} and $curl{version} ) {
 		printf " %8s => %s\n", $k, $v;
 	}
 } else {
-	%curl = ExtUtils::PkgConfig->find( 'libcurl' );
+	eval {
+		%curl = ExtUtils::PkgConfig->find( 'libcurl' );
+	};
+	if ( $@ ) {
+		print STDERR "$@\n";
+		print STDERR "NA: Unable to build distribution on this platform.\n";
+		exit 0;
+	}
+
 	$curl{version} = $curl{modversion};
 
 	print "Found libcurl version $curl{version}\n";
@@ -30,8 +38,9 @@ if ( $curl{libs} and $curl{version} ) {
 	if ( eval "v$curl{version} lt v$minimum_libcurl_ver" ) {
 		print
 			"Your currently installed libcurl version - $curl{version} - is too old.\n".
-			"This module does not support libcurl older than $minimum_libcurl_ver\n";
-		exit 1;
+			"This module does not support libcurl older than $minimum_libcurl_ver\n\n";
+		print STDERR "NA: Unable to build distribution on this platform.\n";
+		exit 0;
 	}
 }
 
@@ -82,6 +91,7 @@ split_xs( "Form" );
 split_xs( "Multi" );
 split_xs( "Share" );
 
+write_examples_pod( 'lib/WWW/CurlOO/examples.pod' );
 
 # older perl seems to choke on it, maybe utf8::upgrade would work ?
 my $l_ = $] >= 5.010 ? "ł" : "l";
@@ -114,10 +124,12 @@ WriteMakefile(
 	},
 	depend		=> {
 		'Makefile'	=> '$(VERSION_FROM)',
-		'$(FIRST_MAKEFILE)' => 'CurlOO_Easy.xsh CurlOO_Form.xsh CurlOO_Multi.xsh CurlOO_Share.xsh'
+		'$(FIRST_MAKEFILE)' => join ( " ", qw(CurlOO_Easy.xsh CurlOO_Form.xsh
+			CurlOO_Multi.xsh CurlOO_Share.xsh),
+			glob "examples/*.pl" ),
 	},
 	clean		=> {
-		FILES => 'const-*.inc curloo-*.inc'
+		FILES => 'const-*.inc curloo-*.inc lib/WWW/CurlOO/examples.pod'
 	},
 );
 
@@ -319,6 +331,54 @@ sub write_defenums
 		print $o "#endif\n";
 	}
 	close $o;
+}
+
+
+sub write_examples_pod
+{
+	my $out = shift;
+
+	print "Writing $out\n";
+	open my $o, ">", $out;
+	print $o "=head1 WWW::CurlOO examples\n\n";
+	print $o "WWW::CurlOO::examples -- sample modules and test code for WWW::CurlOO\n\n";
+
+	foreach my $script ( sort glob "examples/*.pl" ) {
+		my $nopod = 0;
+		my $code = 1;
+
+		print "<- $script\n";
+
+		open my $fin, '<', $script
+			or die "Cannot open $script: $!\n";
+
+		while ( <$fin> ) {
+			if ( /^=cut/ ) {
+				$code = 1;
+				next;
+			} elsif ( /^=/ ) {
+				$code = 0;
+			} elsif ( /^#nopod/ ) {
+				$nopod = 1;
+				next;
+			} elsif ( /^#endnopod/ ) {
+				$nopod = 0;
+				next;
+			} elsif ( $nopod ) {
+				next;
+			}
+			$_ = " " . $_ if $code;
+			s/^\t/ /;
+			s/\t/    /g;
+			s/ +$//;
+			print $o $_;
+			if ( /^=head1\s/ ) {
+				print $o "\n=head4 I<Extracted from C<$script>>\n";
+			}
+		}
+
+		print $o "\n\n";
+	}
 }
 
 # vim: ts=4:sw=4
