@@ -18,6 +18,7 @@ my $last_fdset = "";
 my $last_cnt = 0;
 sub print_fdset
 {
+	return;
 	my $cnt = unpack( "%32b*", join "", @_ );
 	my $n = join ", ", map { unpack( "H*", $_ ) } @_;
 	my $diag = "fdset is $cnt: ( $n )";
@@ -93,7 +94,7 @@ sub action_wait {
     while ($active != 0) {
 	my $ret = $curlm->perform;
 	if ($ret != $active) {
-		while (my ($curl, $result, $msg, $error) = $curlm->info_read) {
+		while (my ($msg, $curl, $result) = $curlm->info_read) {
 			is( $msg, CURLMSG_DONE, "Message is CURLMSG_DONE" );
 			$curlm->remove_handle( $curl );
 			ok( $curl && ( $curl->{private} eq "foo" || $curl->{private}  == 42 ), "The stored private value matches what we set ($curl->{private})");

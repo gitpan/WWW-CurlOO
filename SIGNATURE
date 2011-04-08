@@ -15,27 +15,49 @@ not run its Makefile.PL or Build.PL.
 Hash: SHA1
 
 SHA1 6eaee67f41215b0af325e238a55a850a2802ad1d CurlOO.xs
-SHA1 858f706f400b6be7c5086398fa366e9af7677c61 CurlOO_Easy.xsh
+SHA1 f265794df8d96bb0df593160f46471a9b960621e CurlOO_Easy.xsh
 SHA1 773f79b621a1fa172a6e560147401a2aeffbc11b CurlOO_Form.xsh
-SHA1 66e826f8673a17e0413099be560322f4d9941ad8 CurlOO_Multi.xsh
+SHA1 de5c40acb2a59d41981bc916bde0f93afd7b4b35 CurlOO_Multi.xsh
 SHA1 f17ebd242bd5a6eb1ab3745818bca99fe08532ae CurlOO_Share.xsh
 SHA1 94cbea5b3fb940e25cd4535d1c81bfd7d51dac3c LICENSE
-SHA1 0f1f624c6cbc24be82a0fbf502a505d6713a1ca0 MANIFEST
-SHA1 fc3e3e1d3fb509e3628214984cd02cf46f77cd40 META.yml
-SHA1 8bd49a3819d85ca1b48c06d2ddfa9ffc8d240b07 Makefile.PL
-SHA1 cfdc418d62cd3ba9e13ec55f7d5564549b02d92a README
+SHA1 8d8b8cfc0fe2c69e475d0dbaa863430682125001 MANIFEST
+SHA1 7e41dc2c615f2799d76db248ab8c730690396a3b META.yml
+SHA1 30643625c15b4ab62362e53cb34b33c9c50d0a07 Makefile.PL
+SHA1 3ddd0cff97b54327413644096d1dd2f43e99eb7f README
 SHA1 74730207834dbb2e95c107f44040f3f1a8bb89dd examples/01-curl-transport.pl
-SHA1 c8165b2cde23722d923a46c0c33528612957715f examples/02-multi-simple.pl
+SHA1 5c0c1da771ed1feed699747a184468b256825b4a examples/02-multi-simple.pl
+SHA1 dfbf0d0862f68e44c0a8be49c297dfff2a1b5626 examples/03-multi-event.pl
 SHA1 b5f57e7f43e761780551e50dad7169e0bb8a2150 inc/symbols-in-versions
-SHA1 0e2599b425365c8fcf8d557da4ba116511dbfea6 lib/WWW/CurlOO.pm
-SHA1 2be018d2e1c2e51e73d34436c5c389e6cb8d76bf lib/WWW/CurlOO/Easy.pm
+SHA1 feceddc0c7d9787f31a6c60f86e1e7e86f9f7f0f lib/WWW/CurlOO.pm
+SHA1 1537e8359a0f3a867bd5acbdeda504060c7fb248 lib/WWW/CurlOO/Compat.pm
+SHA1 b660a063331d5086e17808001cd6854d4f7e972a lib/WWW/CurlOO/Easy.pm
 SHA1 bb200d76f3c85b05982a2c5a7cf3463a261c6433 lib/WWW/CurlOO/Form.pm
-SHA1 d409db8e9019f78cbbc92acffcd0114e91e42d42 lib/WWW/CurlOO/Multi.pm
+SHA1 89c75036c4b2cdebf42417c447d6f6321bce78ad lib/WWW/CurlOO/Multi.pm
 SHA1 d8fdce147a517a873ad3b0179d31bdfe901b49fa lib/WWW/CurlOO/Share.pm
+SHA1 a316167a231b57b0b47a7d8977425fc184266e41 lib/WWW/CurlOO/examples.pod
 SHA1 f6a42980577229558600850512d5645f18fe212a t/00-info.t
 SHA1 aa58fcc172a04ccd9ddd27189b9d068f18098c4b t/01-constants.t
 SHA1 0ed5df1da14a581cd5518b0ce7d8966b750215fc t/02-methods.t
 SHA1 2258b512455df3bf299922913bc96fba63175ee6 t/99-symbols.t
+SHA1 0b9ecf96c1ef4fd09a95835b5821e91626f8d242 t/compat-00constants.t
+SHA1 3d46d36741f1c7ca1985a6c115c20f3d295c94b9 t/compat-01basic.t
+SHA1 ea4d4c390c341b05858d0dfcf9b8b41f425e69f8 t/compat-02callbacks.t
+SHA1 ecc1a43942ca209134b5b72899009ac5813392f3 t/compat-04abort-test.t
+SHA1 f0a68501d040bd433189e9b9a5ab765be84d63b7 t/compat-05progress.t
+SHA1 12cbe755933276aeea297256a2c9819dee4f001a t/compat-06http-post.t
+SHA1 0d86400112ad7eae426ab6b158a9cb2df1cf2589 t/compat-07ftp-upload.t
+SHA1 2b9e34b714ee846e1215220b84cafe6d6a0d7c92 t/compat-08ssl.t
+SHA1 a1d26d8e7e5b9000c184b072dbe67723c0098ee3 t/compat-09times.t
+SHA1 1b7d75253fc44c8751b1ecec82d6f5e676fb1aef t/compat-10errbuf.t
+SHA1 1e1986d2f880fc751dfd7bf5b41a9e82b1ad917f t/compat-13slowleak.t
+SHA1 078d499ce3a003940b95b24994000d381ad2ec44 t/compat-14duphandle.t
+SHA1 d27d9e404282398b865cddc7f6e52f162d17557f t/compat-15duphandle-callback.t
+SHA1 fcd87651754e3bc2f8d1d483798e41e525ea3fca t/compat-16formpost.t
+SHA1 3ecf77f1f77a8304eb787a83109f4f5e350ea72d t/compat-17slist.t
+SHA1 fce7b59f37fadf3efc9aaf09a90e03fd980e9bce t/compat-18twinhandles.t
+SHA1 678a1cb8b7b3d0bcaf7024c5223a32300c439d46 t/compat-19multi.t
+SHA1 ab2b708e85455429842d392ee31a8396ee1a1adc t/compat-20undefined_subs.t
+SHA1 ae91352356c0228cd6e041e1644319d42601fe8a t/compat-21write-to-scalar.t
 SHA1 d632355590aa1819949405f650557c9889b4370c t/old-01basic.t
 SHA1 0bf98fe1ce9998395ae42318b4711e1802cab54c t/old-02-form.t
 SHA1 4b1b40f68fffb62808801702c16fd75e156c6131 t/old-02callbacks.t
@@ -52,12 +74,12 @@ SHA1 975aa9bf0aacc2c93dce87a337c9e4e718e120cf t/old-15duphandle-callback.t
 SHA1 77951a60ec131f6dda268e48fa446d8a5521dea9 t/old-16formpost.t
 SHA1 b18bf18d0cb685dcebc18c740eb8d8c5bd0fb441 t/old-17slist.t
 SHA1 adddbfa9b66217e8274309518d19b0e05f69e076 t/old-18twinhandles.t
-SHA1 6eb1d211a454ae0ee9fdd187413cf1ba719c2c02 t/old-19multi.t
+SHA1 a036e3fa1000a1a7db08cc55f335e2bad5a46d81 t/old-19multi.t
 SHA1 11dc173cd07ba398b806e77e08eff1ded6b1a6b0 t/old-20undefined_subs.t
 SHA1 7feb3891feef7729e05869a6e9b3187b707fb3d8 t/old-21write-to-scalar.t
 SHA1 255a4938c30c8b428d9eca80e33c01515de4de65 t/old-22sendrecv.t
-SHA1 98fa629aecdbcd9de583c4c4061142d5a505fac2 t/old-23socket-action.t
-SHA1 a2991225207b87e889d0e3679e673807a7e6c0d9 t/old-24-multi-refcount.t
+SHA1 1b976dce478cf737c797a7354a9277a4e8e2c8bc t/old-23socket-action.t
+SHA1 9d624d7b8f9f3bb5d20ce02c0a646bbf37596a8f t/old-24-multi-refcount.t
 SHA1 2924361d0713031b92c6b888f11e860d357837f7 t/old-meta.t
 SHA1 2f44346e0387b2e5749ed08c67637adb4fb40bd0 t/old-pod-coverage.t
 SHA1 0190346d7072d458c8a10a45c19f86db641dcc48 t/old-pod.t
@@ -65,7 +87,7 @@ SHA1 f60a0f32ac13cb57a9d10864431ae761eecbefdc typemap
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iEYEARECAAYFAk2dGjkACgkQdltEc8aiybkr8gCeP2Avmmu5rRjFeRII3P9ypWbN
-EBIAn3cJQSzCDa7OVMexhog6/dvCq95q
-=6pgN
+iEYEARECAAYFAk2ea5UACgkQdltEc8aiyblruACfSCIbO3QW5mYGTUQY4JlSI+cm
+iQwAn3xP6nOzcHpF5r4ZYLt1GOV+VFHY
+=lAMm
 -----END PGP SIGNATURE-----
