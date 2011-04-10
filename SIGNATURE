@@ -14,21 +14,21 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 6ac596a0f2556dd7a8689261a52a2c480134c77d CurlOO.xs
+SHA1 dd9ced587cc397c67ffa2b088a2ac254faad6ca9 CurlOO.xs
 SHA1 20dc0c3ac59f8c1ce07ada698f313a0a0a557f1c CurlOO_Easy.xsh
 SHA1 2b065d5843cd60d62e4296c3f08766e8bf01f0e9 CurlOO_Form.xsh
 SHA1 f3619fd8f5e8cb8455e20218e5d531c6278936ac CurlOO_Multi.xsh
 SHA1 8edc4dedc7559431a3cfc937cd02054775fdbf79 CurlOO_Share.xsh
 SHA1 94cbea5b3fb940e25cd4535d1c81bfd7d51dac3c LICENSE
 SHA1 17d5db880293451f88ad68f83c36744f0f18f131 MANIFEST
-SHA1 d7ca032fb23f2e4d151c4f2262f8b7ca39f17146 META.yml
-SHA1 095ef016e3ede95e4876793e9ba42b9576f348e7 Makefile.PL
+SHA1 0a3d5904d6ff3b39035c47801368544a8108f48a META.yml
+SHA1 3c541b4bc7d0dd519fb8d587cdc95a9a2e63c910 Makefile.PL
 SHA1 1f4448ea6ad2139ac53ff110cf6e9247f0fc693d README
 SHA1 74730207834dbb2e95c107f44040f3f1a8bb89dd examples/01-curl-transport.pl
 SHA1 517030a061761503bb68ec6094cb8efbdc1a5312 examples/02-multi-simple.pl
 SHA1 ea2b7f94cc13d0e5302a1546c8789cd12fc1a400 examples/03-multi-event.pl
 SHA1 b5f57e7f43e761780551e50dad7169e0bb8a2150 inc/symbols-in-versions
-SHA1 61a4f49d7d2fcf401971d916fe1bbebfe9dd06c1 lib/WWW/CurlOO.pm
+SHA1 31da71dd4cb72c8bcffafeb6fed00e0e5cea0680 lib/WWW/CurlOO.pm
 SHA1 c27f4159df95109613b0b0db770d6be986021221 lib/WWW/CurlOO/Compat.pm
 SHA1 87fde70f05e894c3215e2b73fa08f08fbbd0f5c0 lib/WWW/CurlOO/Easy.pm
 SHA1 bb200d76f3c85b05982a2c5a7cf3463a261c6433 lib/WWW/CurlOO/Form.pm
@@ -44,7 +44,7 @@ SHA1 3d46d36741f1c7ca1985a6c115c20f3d295c94b9 t/compat-01basic.t
 SHA1 ea4d4c390c341b05858d0dfcf9b8b41f425e69f8 t/compat-02callbacks.t
 SHA1 ecc1a43942ca209134b5b72899009ac5813392f3 t/compat-04abort-test.t
 SHA1 f0a68501d040bd433189e9b9a5ab765be84d63b7 t/compat-05progress.t
-SHA1 2b9e34b714ee846e1215220b84cafe6d6a0d7c92 t/compat-08ssl.t
+SHA1 638acb4f5261d190ca45df9306fd39f0ef818338 t/compat-08ssl.t
 SHA1 a1d26d8e7e5b9000c184b072dbe67723c0098ee3 t/compat-09times.t
 SHA1 1b7d75253fc44c8751b1ecec82d6f5e676fb1aef t/compat-10errbuf.t
 SHA1 078d499ce3a003940b95b24994000d381ad2ec44 t/compat-14duphandle.t
@@ -60,7 +60,7 @@ SHA1 49d3be1a847e34e3285657ff0df82b1c23c69ab8 t/old-04abort-test.t
 SHA1 9e33e772e7a1c802562f41195f770d5e4da17cea t/old-05progress.t
 SHA1 0c29a30fcbcb796be48781450faec447edd8b55a t/old-06http-post.t
 SHA1 f613fd9389b5d0c91b4c26856a8e4f83083dffd7 t/old-07ftp-upload.t
-SHA1 fd62c6e1bee7c0414b0710739566331efa9d0362 t/old-08ssl.t
+SHA1 d8f92dd5b7a0eae65a7f7c0604db166174454660 t/old-08ssl.t
 SHA1 9d3710e3217ce1a2a15e9690931703e532c8aa7a t/old-09times.t
 SHA1 19aedf4e5f8927aab7393c2658093704748e7034 t/old-10errbuf.t
 SHA1 06fb4fc6f2ddd971fcc0acf91072d4d64a409694 t/old-13slowleak.t
@@ -82,7 +82,7 @@ SHA1 12de9833dd98799ce5079aee829f2fb617b21902 typemap
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iEYEARECAAYFAk2hBHAACgkQdltEc8aiybkFrwCeOcaSrV8PZIZ/yGwQ6EDaFmjC
-khUAnjl1Y/YD84HxTMOGUR1CJ/6lqIOm
-=uB1H
+iEYEARECAAYFAk2hlM4ACgkQdltEc8aiybnzYQCdE054qs7wj32IaZZbPUB2qPOq
+ssgAn0qGe9yk77wxhbd2cPZtAHXZSA4n
+=lApQ
 -----END PGP SIGNATURE-----
