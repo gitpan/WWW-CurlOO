@@ -4,23 +4,23 @@ This package is working, but still a lot has to change.
 ** TODO **
 
 CurlOO:
-- add version_build()
++ added LIBCURL_ constants
 
 Easy:
 - review !
 + delay deaths
 - test callback arguments just before perform (maybe only for default writers)
-- implement pause (curl_easy_pause)
-- implement reset (curl_easy_reset)
++ implement pause (curl_easy_pause)
++ implement reset (curl_easy_reset)
 + allow calling strerror as function
 + write some documentation
 - write more documentation
 - multiple options in setopt
-- duphandle must copy package name from source object
++ duphandle must copy package name from source object
 - allow calling duphandle as: CLASS->duphandle( $source_object, $newbase );
 + multi() getter
-- share() getter
-- maybe form() getter
++ share() getter
++ maybe form() getter
 
 Form:
 - test with Easy
@@ -30,10 +30,9 @@ Form:
 - write more documentation
 
 Multi:
-- remove all remaining easy handles when destroying multi
-- implement list_handles(), will be very easy since we need to store them
-  for above problem
-- implement assign (curl_multi_assign)
++ remove all remaining easy handles when destroying multi
++ implement handles() -- lists all easy handles attached now
++ implement assign (curl_multi_assign)
 + remove remove_handle from info_read
 + allow calling strerror as function
 + write some documentation
@@ -41,10 +40,11 @@ Multi:
 + info_read() should return result as ..::Easy::Code
 
 Share:
-- test with Easy
++ test with Easy
 + allow calling strerror as function
 + write some documentation
 - write more documentation
+- test and fix multi-thread operation
 
 tests:
 - use some pure-perl http server, should do for most tests

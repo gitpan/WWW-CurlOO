@@ -323,37 +323,49 @@ Sample application using this module looks like this:
  use strict;
  use warnings;
  use Multi::Simple;
+ use WWW::CurlOO::Share qw(:constants);
+
 
  sub easy
  {
      my $uri = shift;
+     my $share = shift;
 
      require WWW::CurlOO::Easy;
 
      my $easy = WWW::CurlOO::Easy->new( { uri => $uri, body => '' } );
+     $easy->setopt( WWW::CurlOO::Easy::CURLOPT_VERBOSE(), 1 );
      $easy->setopt( WWW::CurlOO::Easy::CURLOPT_URL(), $uri );
      $easy->setopt( WWW::CurlOO::Easy::CURLOPT_WRITEHEADER(), \$easy->{headers} );
      $easy->setopt( WWW::CurlOO::Easy::CURLOPT_FILE(), \$easy->{body} );
+     $easy->setopt( WWW::CurlOO::Easy::CURLOPT_SHARE(), $share );
      return $easy;
  }
 
  my $multi = Multi::Simple->new();
 
- $multi->add_handle( easy( "http://www.google.com/search?q=perl" ) );
- $multi->add_handle( easy( "http://example.com/1" ) );
- $multi->add_handle( easy( "http://example.com/2" ) );
- $multi->add_handle( easy( "http://example.com/3" ) );
- $multi->add_handle( easy( "http://example.com/4" ) );
- $multi->add_handle( easy( "http://example.com/5" ) );
- $multi->add_handle( easy( "http://example.com/6" ) );
+ my @uri = (
+     "http://www.google.com/search?q=perl",
+     "http://www.google.com/search?q=curl",
+     "http://www.google.com/search?q=perl+curl",
+ );
+
+ {
+     # share cookies between all handles
+     my $share = WWW::CurlOO::Share->new();
+     $share->setopt( CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE );
+     $multi->add_handle( easy( shift ( @uri ), $share ) );
+ }
 
  my $ret = 0;
  while ( my ( $msg, $easy, $result ) = $multi->get_one() ) {
      print "\nFinished downloading $easy->{uri}: $result:\n";
-     print $easy->{headers};
      printf "Body is %d bytes long\n", length $easy->{body};
+     print "=" x 80 . "\n";
 
      $ret = 1 if $result;
+
+     $multi->add_handle( easy( shift ( @uri ), $easy->share ) ) if @uri;
  }
 
  exit $ret;
@@ -413,17 +425,14 @@ the quirks found when using event-based programming.
  # will be called by curl any time events on some socket must be updated
  sub _cb_socket
  {
-     my ( $easy, $socket, $poll ) = @_;
+     my ( $multi, $easy, $socket, $poll ) = @_;
      #warn "on_socket( $socket => $poll )\n";
 
-     # socket callback receives the $easy handle as first argument.
      # Right now $socket belongs to that $easy, but it can be
      # shared with another easy handle if server supports persistent
      # connections.
      # This is why we register socket events inside multi object
      # and not $easy.
-
-     my $multi = $easy->multi;
 
      # deregister old io events
      delete $multi->{ "r$socket" };

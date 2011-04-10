@@ -22,6 +22,14 @@ struct perl_curl_multi_s {
 
 	/* list of callbacks */
 	callback_t cb[ CB_MULTI_LAST ];
+
+	/* list of data assigned to sockets */
+	/* key: socket fd; value: user sv */
+	simplell_t *socket_data;
+
+	/* list of easy handles attached to this multi */
+	/* key: our easy pointer, value: easy SV */
+	simplell_t *easies;
 };
 
 /* make a new multi */
@@ -40,13 +48,39 @@ perl_curl_multi_delete( pTHX_ perl_curl_multi_t *multi )
 /*{{{*/ {
 	perl_curl_multi_callback_code_t i;
 
+	/* remove and mortalize all easy handles */
+	if ( multi->easies ) {
+		simplell_t *next, *now = multi->easies;
+		do {
+			perl_curl_easy_t *easy;
+			easy = INT2PTR( perl_curl_easy_t *, now->key );
+			curl_multi_remove_handle( multi->handle, easy->handle );
+			easy->multi = NULL;
+
+			next = now->next;
+			sv_2mortal( (SV *) now->value );
+			Safefree( now );
+		} while ( ( now = next ) != NULL );
+	}
+
 	if ( multi->handle )
 		curl_multi_cleanup( multi->handle );
+
+	if ( multi->socket_data ) {
+		simplell_t *next, *now = multi->socket_data;
+		do {
+			next = now->next;
+			sv_2mortal( (SV *) now->value );
+			Safefree( now );
+		} while ( ( now = next ) != NULL );
+	}
 
 	for( i = 0; i < CB_MULTI_LAST; i++ ) {
 		sv_2mortal( multi->cb[i].func );
 		sv_2mortal( multi->cb[i].data );
 	}
+
+	sv_2mortal( multi->perl_self );
 
 	Safefree( multi );
 } /*}}}*/
@@ -63,14 +97,16 @@ cb_multi_socket( CURL *easy_handle, curl_socket_t s, int what, void *userptr,
 	multi = (perl_curl_multi_t *) userptr;
 	(void) curl_easy_getinfo( easy_handle, CURLINFO_PRIVATE, (void *) &easy );
 
-	/* $easy, $socket, $what, [$socketdata = undef], $userdata */
-	/* XXX: add $socketdata */
+	/* $multi, $easy, $socket, $what, $socketdata, $userdata */
 	SV *args[] = {
-		newSVsv( easy->perl_self ),
-		newSVuv( s ),
-		newSViv( what ),
-		newSVsv( &PL_sv_undef ) /* XXX: socketdata, unsupported */
+		/* 0 */ newSVsv( multi->perl_self ),
+		/* 1 */ newSVsv( easy->perl_self ),
+		/* 2 */ newSVuv( s ),
+		/* 3 */ newSViv( what ),
+		/* 4 */ &PL_sv_undef
 	};
+	if ( socketp )
+		args[4] = newSVsv( (SV *) socketp );
 
 	return PERL_CURL_CALL( &multi->cb[ CB_MULTI_SOCKET ], args );
 } /*}}}*/
@@ -124,6 +160,9 @@ new( sclass="WWW::CurlOO::Multi", base=HASHREF_BY_DEFAULT )
 		stash = gv_stashpv( sclass, 0 );
 		ST(0) = sv_bless( base, stash );
 
+		multi->perl_self = newSVsv( ST(0) );
+		sv_rvweaken( multi->perl_self );
+
 		XSRETURN(1);
 
 
@@ -134,10 +173,18 @@ add_handle( multi, easy )
 	PREINIT:
 		CURLMcode ret;
 	CODE:
-		multi->perl_self = sv_2mortal( newSVsv( ST(0) ) );
-		perl_curl_easy_update( easy, newSVsv( ST(1) ) );
-		easy->multi = multi;
+		if ( easy->multi )
+			croak( "Specified easy handle is attached to %s multi handle already",
+				easy->multi == multi ? "this" : "another" );
+
 		ret = curl_multi_add_handle( multi->handle, easy->handle );
+		if ( !ret ) {
+			SV **easysv_ptr;
+			easysv_ptr = perl_curl_simplell_add( aTHX_ &multi->easies,
+				PTR2nat( easy ) );
+			*easysv_ptr = newSVsv( easy->perl_self );
+			easy->multi = multi;
+		}
 		MULTI_DIE( ret );
 
 void
@@ -147,11 +194,20 @@ remove_handle( multi, easy )
 	PREINIT:
 		CURLMcode ret;
 	CODE:
-		multi->perl_self = sv_2mortal( newSVsv( ST(0) ) );
 		CLEAR_ERRSV();
+		if ( easy->multi != multi )
+			croak( "Specified easy handle is not attached to %s multi handle",
+				easy->multi ? "this" : "any" );
+
 		ret = curl_multi_remove_handle( multi->handle, easy->handle );
-		sv_2mortal( easy->perl_self );
-		easy->perl_self = NULL;
+		{
+			SV *easysv;
+			easysv = perl_curl_simplell_del( aTHX_ &multi->easies,
+				PTR2nat( easy ) );
+			if ( !easysv )
+				croak( "internal WWW::CurlOO error" );
+			sv_2mortal( easysv );
+		}
 		easy->multi = NULL;
 
 		/* rethrow errors */
@@ -168,7 +224,6 @@ info_read( multi )
 		int queue;
 		CURLMsg *msg;
 	PPCODE:
-		multi->perl_self = sv_2mortal( newSVsv( ST(0) ) );
 		CLEAR_ERRSV();
 		while ( (msg = curl_multi_info_read( multi->handle, &queue ) ) ) {
 			/* most likely CURLMSG_DONE */
@@ -218,7 +273,6 @@ fdset( multi )
 		unsigned char writeset[ sizeof( fd_set ) ] = { 0 };
 		unsigned char excepset[ sizeof( fd_set ) ] = { 0 };
 	PPCODE:
-		/* {{{ */
 		FD_ZERO( &fdread );
 		FD_ZERO( &fdwrite );
 		FD_ZERO( &fdexcep );
@@ -229,6 +283,8 @@ fdset( multi )
 
 		readsize = writesize = excepsize = 0;
 
+		/* TODO: this is rather slow, should copy whole bytes instead, but
+		 * some fdset implementations may be hard to predict */
 		if ( maxfd != -1 ) {
 			for ( i = 0; i <= maxfd; i++ ) {
 				if ( FD_ISSET( i, &fdread ) ) {
@@ -245,11 +301,11 @@ fdset( multi )
 				}
 			}
 		}
+
 		EXTEND( SP, 3 );
 		mPUSHs( newSVpvn( (char *) readset, readsize ) );
 		mPUSHs( newSVpvn( (char *) writeset, writesize ) );
 		mPUSHs( newSVpvn( (char *) excepset, excepsize ) );
-		/* }}} */
 
 
 long
@@ -324,7 +380,6 @@ perform( multi )
 		int remaining;
 		CURLMcode ret;
 	CODE:
-		multi->perl_self = sv_2mortal( newSVsv( ST(0) ) );
 		CLEAR_ERRSV();
 		do {
 			ret = curl_multi_perform( multi->handle, &remaining );
@@ -350,7 +405,6 @@ socket_action( multi, sockfd=CURL_SOCKET_BAD, ev_bitmask=0 )
 		int remaining;
 		CURLMcode ret;
 	CODE:
-		multi->perl_self = sv_2mortal( newSVsv( ST(0) ) );
 		CLEAR_ERRSV();
 		do {
 			ret = curl_multi_socket_action( multi->handle,
@@ -368,11 +422,43 @@ socket_action( multi, sockfd=CURL_SOCKET_BAD, ev_bitmask=0 )
 		RETVAL
 
 
+#if LIBCURL_VERSION_NUM >= 0x070f05
+
+void
+assign( multi, sockfd, value=NULL )
+	WWW::CurlOO::Multi multi
+	unsigned long sockfd
+	SV *value
+	PREINIT:
+		CURLMcode ret;
+		void *sockptr;
+	CODE:
+		if ( value && SvOK( value ) ) {
+			SV **valueptr;
+			valueptr = perl_curl_simplell_add( aTHX_ &multi->socket_data,
+				sockfd );
+			if ( !valueptr )
+				croak( "internal WWW::CurlOO error" );
+			if ( *valueptr )
+				sv_2mortal( *valueptr );
+			sockptr = *valueptr = newSVsv( value );
+		} else {
+			SV *oldvalue;
+			oldvalue = perl_curl_simplell_del( aTHX_ &multi->socket_data, sockfd );
+			if ( oldvalue )
+				sv_2mortal( oldvalue );
+			sockptr = NULL;
+		}
+		ret = curl_multi_assign( multi->handle, sockfd, sockptr );
+		MULTI_DIE( ret );
+
+#endif
+
+
 void
 DESTROY( multi )
 	WWW::CurlOO::Multi multi
 	CODE:
-		/* TODO: remove all associated easy handles */
 		perl_curl_multi_delete( aTHX_ multi );
 
 
@@ -383,12 +469,40 @@ strerror( ... )
 		const char *errstr;
 	CODE:
 		if ( items < 1 || items > 2 )
-#ifdef croak_xs_usage
-			croak_xs_usage(cv, "[multi], errnum");
-#else
 			croak( "Usage: WWW::CurlOO::Multi::strerror( [multi], errnum )" );
-#endif
 		errstr = curl_multi_strerror( SvIV( ST( items - 1 ) ) );
 		RETVAL = newSVpv( errstr, 0 );
 	OUTPUT:
 		RETVAL
+
+
+=head1 Extensions
+
+Functions that do not have libcurl equivalents.
+
+=cut
+
+void
+handles( multi )
+	WWW::CurlOO::Multi multi
+	PREINIT:
+			simplell_t *now;
+	PPCODE:
+		if ( GIMME_V == G_VOID )
+			XSRETURN( 0 );
+
+		now = multi->easies;
+
+		if ( GIMME_V == G_SCALAR ) {
+			IV i = 0;
+			while ( now ) {
+				i++;
+				now = now->next;
+			}
+			ST(0) = newSViv( i );
+			XSRETURN( 1 );
+		}
+		while ( now ) {
+			XPUSHs( newSVsv( now->value ) );
+			now = now->next;
+		}
