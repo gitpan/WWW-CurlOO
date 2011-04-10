@@ -17,7 +17,7 @@ my $constant_names;
 
 # XXX: some compilers may not support those flags
 my $devel_cflags = "-Wall ";
-$devel_cflags .= "-Werror " if -d ".git";
+$devel_cflags .= "-Werror -DCALLBACK_TYPECHECK " if -d ".git";
 
 if ( $curl{libs} and $curl{version} ) {
 	print "Using manually introduced curl options:\n";
@@ -139,7 +139,8 @@ WriteMakefile(
 	depend		=> {
 		'Makefile'	=> '$(VERSION_FROM)',
 		'$(FIRST_MAKEFILE)' => join ( " ", qw(CurlOO_Easy.xsh CurlOO_Form.xsh
-			CurlOO_Multi.xsh CurlOO_Share.xsh),
+			CurlOO_Multi.xsh CurlOO_Share.xsh CurlOO_Easy_setopt.c
+			CurlOO_Easy_callbacks.c),
 			glob "examples/*.pl" ),
 	},
 	clean		=> {
@@ -414,6 +415,7 @@ sub write_examples_pod
 	}
 }
 
+__END__
 package ExtUtils::MM_Unix;
 
 sub all_target {
