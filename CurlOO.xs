@@ -207,6 +207,16 @@ perl_curl_call( pTHX_ callback_t *cb, int argnum, SV **args )
 	int i;
 	long status;
 	SV *olderrsv = NULL;
+	int method_call = 0;
+
+	if ( SvROK( cb->func ) )
+		method_call = 0;
+	else if ( SvPOK( cb->func ) )
+		method_call = 1;
+	else {
+		warn( "Don't know how to call the callback\n" );
+		return -1;
+	}
 
 	ENTER;
 	SAVETMPS;
@@ -225,7 +235,10 @@ perl_curl_call( pTHX_ callback_t *cb, int argnum, SV **args )
 	if ( SvTRUE( ERRSV ) )
 		olderrsv = sv_2mortal( newSVsv( ERRSV ) );
 
-	perl_call_sv( cb->func, G_SCALAR | G_EVAL );
+	if ( method_call )
+		perl_call_method( SvPV_nolen( cb->func ), G_SCALAR | G_EVAL );
+	else
+		perl_call_sv( cb->func, G_SCALAR | G_EVAL );
 
 	SPAGAIN;
 
@@ -251,10 +264,16 @@ perl_curl_call( pTHX_ callback_t *cb, int argnum, SV **args )
 	perl_curl_call( aTHX_ (cb), sizeof( arg ) / sizeof( (arg)[0] ), (arg) )
 
 
-static MGVTBL perl_curl_vtbl = { NULL };
+static int
+perl_curl_any_magic_nodup( pTHX_ MAGIC *mg, CLONE_PARAMS *param )
+{
+	warn( "WWW::CurlOO::(Easy|Form|Multi) does not support cloning\n" );
+	mg->mg_ptr = NULL;
+	return 1;
+}
 
 static void *
-perl_curl_getptr( pTHX_ SV *self )
+perl_curl_getptr( pTHX_ SV *self, MGVTBL *vtbl )
 {
 	MAGIC *mg;
 
@@ -271,7 +290,7 @@ perl_curl_getptr( pTHX_ SV *self )
 		return NULL;
 
 	for ( mg = SvMAGIC( SvRV( self ) ); mg != NULL; mg = mg->mg_moremagic ) {
-		if ( mg->mg_type == PERL_MAGIC_ext && mg->mg_virtual == &perl_curl_vtbl )
+		if ( mg->mg_type == PERL_MAGIC_ext && mg->mg_virtual == vtbl )
 			return mg->mg_ptr;
 	}
 
@@ -280,7 +299,8 @@ perl_curl_getptr( pTHX_ SV *self )
 
 
 static void *
-perl_curl_getptr_fatal( pTHX_ SV *self, const char *name, const char *type )
+perl_curl_getptr_fatal( pTHX_ SV *self, MGVTBL *vtbl, const char *name,
+		const char *type )
 {
 	void *ret;
 	SV **perl_self;
@@ -288,7 +308,7 @@ perl_curl_getptr_fatal( pTHX_ SV *self, const char *name, const char *type )
 	if ( ! sv_derived_from( self, type ) )
 		croak( "'%s' is not a %s object", name, type );
 
-	ret = perl_curl_getptr( aTHX_ self );
+	ret = perl_curl_getptr( aTHX_ self, vtbl );
 
 	if ( ret == NULL )
 		croak( "'%s' is an invalid %s object", name, type );
@@ -305,15 +325,16 @@ perl_curl_getptr_fatal( pTHX_ SV *self, const char *name, const char *type )
 
 
 static void
-perl_curl_setptr( pTHX_ SV *self, void *ptr )
+perl_curl_setptr( pTHX_ SV *self, MGVTBL *vtbl, void *ptr )
 {
 	MAGIC *mg;
 
-	if ( perl_curl_getptr( aTHX_ self ) )
+	if ( perl_curl_getptr( aTHX_ self, vtbl ) )
 		croak( "object already has our pointer" );
 
 	mg = sv_magicext( SvRV( self ), 0, PERL_MAGIC_ext,
-		&perl_curl_vtbl, (const char *) ptr, 0 );
+		vtbl, (const char *) ptr, 0 );
+	mg->mg_flags |= MGf_DUP;
 }
 
 
@@ -374,8 +395,13 @@ typedef perl_curl_share_t *WWW__CurlOO__Share;
 MODULE = WWW::CurlOO	PACKAGE = WWW::CurlOO
 
 BOOT:
-	/* FIXME: does this need a mutex for ithreads? */
-	curl_global_init( CURL_GLOBAL_ALL );
+	{
+		/* XXX 1: this is _not_ thread safe */
+		/* XXX 2: should never be called from a thread */
+		static int run_once = 0;
+		if ( !run_once++ )
+			curl_global_init( CURL_GLOBAL_ALL );
+	}
 	{
 		dTHX;
 		HV *symbol_table = get_hv( "WWW::CurlOO::", GV_ADD );

@@ -185,6 +185,23 @@ perl_curl_easy_delete( pTHX_ perl_curl_easy_t *easy )
 
 } /*}}}*/
 
+static int
+perl_curl_easy_magic_free( pTHX_ SV *sv, MAGIC *mg )
+{
+	if ( mg->mg_ptr )
+		perl_curl_easy_delete( aTHX_ (void *)mg->mg_ptr );
+	return 0;
+}
+
+static MGVTBL perl_curl_easy_vtbl = {
+	NULL, NULL, NULL, NULL
+	,perl_curl_easy_magic_free
+	,NULL
+	,perl_curl_any_magic_nodup
+#ifdef MGf_LOCAL
+	,NULL
+#endif
+};
 
 static void
 perl_curl_easy_preset( perl_curl_easy_t *easy )
@@ -231,7 +248,7 @@ new( sclass="WWW::CurlOO::Easy", base=HASHREF_BY_DEFAULT )
 		easy = perl_curl_easy_new();
 		perl_curl_easy_preset( easy );
 
-		perl_curl_setptr( aTHX_ base, easy );
+		perl_curl_setptr( aTHX_ base, &perl_curl_easy_vtbl, easy );
 		stash = gv_stashpv( sclass, 0 );
 		ST(0) = sv_bless( base, stash );
 
@@ -324,7 +341,7 @@ duphandle( easy, base=HASHREF_BY_DEFAULT )
 
 		/* XXX: copy share and form */
 
-		perl_curl_setptr( aTHX_ base, clone );
+		perl_curl_setptr( aTHX_ base, &perl_curl_easy_vtbl, clone );
 		stash = gv_stashpv( sclass, 0 );
 		ST(0) = sv_bless( base, stash );
 
@@ -522,13 +539,6 @@ recv( easy, buffer, length )
 #endif
 
 
-void
-DESTROY( easy )
-	WWW::CurlOO::Easy easy
-	CODE:
-		perl_curl_easy_delete( aTHX_ easy );
-
-
 SV *
 strerror( ... )
 	PROTOTYPE: $;$
@@ -587,5 +597,15 @@ form( easy )
 	WWW::CurlOO::Easy easy
 	CODE:
 		RETVAL = easy->form_sv ? newSVsv( easy->form_sv ) : &PL_sv_undef;
+	OUTPUT:
+		RETVAL
+
+
+int
+CLONE_SKIP( pkg )
+	SV *pkg
+	CODE:
+		(void ) pkg;
+		RETVAL = 1;
 	OUTPUT:
 		RETVAL

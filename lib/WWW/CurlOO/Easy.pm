@@ -29,10 +29,6 @@ __END__
 
 WWW::CurlOO::Easy - Perl interface for curl_easy_* functions
 
-=head1 WARNING
-
-B<THIS MODULE IS UNDER HEAVY DEVELOPEMENT AND SOME INTERFACE MAY CHANGE YET.>
-
 =head1 SYNOPSIS
 
  use WWW::CurlOO::Easy qw(:constants);
@@ -97,7 +93,8 @@ Calls L<curl_easy_setopt(3)>.
 If option expects a slist, specified array will be appended instead of
 replacing the old slist.
 
- $easy->pushopt( WWW::CurlOO::Easy::CURLOPT_HTTPHEADER, ['More: headers'] );
+ $easy->pushopt( WWW::CurlOO::Easy::CURLOPT_HTTPHEADER,
+     ['More: headers'] );
 
 Builds a slist and calls L<curl_easy_setopt(3)>.
 
@@ -113,7 +110,7 @@ Calls L<curl_easy_perform(3)>.
 
 Retrieve a value. OPTION is one of C<CURLINFO_*> constants.
 
- my $socket = $self->getinfo( WWW::CurlOO::Easy::CURLINFO_LASTSOCKET );
+ my $socket = $self->getinfo( CURLINFO_LASTSOCKET );
 
 Calls L<curl_easy_getinfo(3)>.
 
@@ -217,7 +214,8 @@ Reffer to libcurl documentation for more detailed info on each of those.
 Callbacks can be set using setopt() method.
 
  $easy->setopt( CURLOPT_somethingFUNCTION, \&something );
- $easy->setopt( CURLOPT_somethingDATA, [qw(any additional data you want)] );
+ $easy->setopt( CURLOPT_somethingDATA, [qw(any additional data
+     you want)] );
 
 =over
 
@@ -362,7 +360,8 @@ It must return one of CURL_CHUNK_BGN_FUNC_* values.
          return CURL_CHUNK_BGN_FUNC_SKIP;
      }
      my $filename = "unknown." . $remaining;
-     $filename = $fileinfo->{filename} if defined $fileinfo->{filename};
+     $filename = $fileinfo->{filename}
+         if defined $fileinfo->{filename};
 
      open $easy->{myfile}, '>', $filename
          or return CURL_CHUNK_BGN_FUNC_FAIL;

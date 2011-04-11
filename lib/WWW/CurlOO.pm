@@ -6,7 +6,7 @@ use Exporter 'import';
 our @ISA;
 our $VERSION;
 BEGIN {
-	$VERSION = '0.12';
+	$VERSION = '0.13';
 
 	my $loaded = 0;
 
@@ -42,10 +42,6 @@ __END__
 =head1 NAME
 
 WWW::CurlOO - Perl interface for libcurl
-
-=head1 WARNING
-
-B<THIS MODULE IS UNDER HEAVY DEVELOPEMENT AND SOME INTERFACE MAY CHANGE YET.>
 
 =head1 SYNOPSIS
 
@@ -83,7 +79,7 @@ Returns libcurl version string.
 
  my $libcurl_verstr = WWW::CurlOO::version();
  # prints something like:
- # libcurl/7.21.4 GnuTLS/2.10.4 zlib/1.2.5 c-ares/1.7.4 libidn/1.20 libssh2/1.2.7 librtmp/2.3
+ # libcurl/7.21.4 GnuTLS/2.10.4 zlib/1.2.5 c-ares/1.7.4 ...
  print $libcurl_verstr;
 
 Calls L<curl_version(3)> function.
@@ -105,9 +101,10 @@ Example for version_info with age CURLVERSION_FOURTH:
  ssl_version => 'GnuTLS/2.10.4'
  ssl_version_num => 0,
  libz_version => '1.2.5',
- protocols => [ 'dict', 'file', 'ftp', 'ftps', 'gopher', 'http', 'https',
-                'imap', 'imaps', 'ldap', 'ldaps', 'pop3', 'pop3s', 'rtmp', 'rtsp',
-                'scp', 'sftp', 'smtp', 'smtps', 'telnet', 'tftp' ],
+ protocols => [ 'dict', 'file', 'ftp', 'ftps', 'gopher', 'http',
+                'https', 'imap', 'imaps', 'ldap', 'ldaps', 'pop3',
+                'pop3s', 'rtmp', 'rtsp', 'scp', 'sftp', 'smtp',
+                'smtps', 'telnet', 'tftp' ],
  ares => '1.7.4',
  ares_num => 67332,
  libidn => '1.20',
@@ -117,7 +114,8 @@ Example for version_info with age CURLVERSION_FOURTH:
 You can import constants if you want to check libcurl features:
 
  use WWW::CurlOO qw(:constants);
- unless ( WWW::CurlOO::version_info()->{features} & CURL_VERSION_SSL ) {
+ my $vi = WWW::CurlOO::version_info();
+ unless ( $vi->{features} & CURL_VERSION_SSL ) {
      die "SSL support is required\n";
  }
 
@@ -150,25 +148,27 @@ runtime libcurl version has necessary features.
 
 =back
 
+=head1 STATUS
+
+Implemented interface is solid, there should be no more changes to it. Only
+new features will be added.
+
+This package tries very hard to not allow user do anything that could make
+libcurl crash, but there still may be some corner cases where that happens.
+
 =head1 AUTHORS
 
 This package was mostly rewritten by Przemyslaw Iskra <sparky at pld-linux.org>.
 
-It is based on WWW::Curl developed by Cris Bailiff <c.bailiff+curl at devsecure.com>
-and Balint Szilakszi <szbalint at cpan.org>.
+=head1 HISTORY
 
-Original Author Georg Horn <horn@koblenz-net.de>, with additional callback,
-pod and test work by Cris Bailiff <c.bailiff+curl@devsecure.com> and
-Forrest Cahoon <forrest.cahoon@merrillcorp.com>. Sebastian Riedel added ::Multi
-and Anton Fedorov (datacompboy <at> mail.ru) added ::Share. Balint Szilakszi
-repackaged the module into a more modern form.
+Module started as an extension to L<WWW::Curl> developed by Cris Bailiff
+<c.bailiff+curl at devsecure.com>, Balint Szilakszi <szbalint at cpan.org>
+and a long list of contributors. However, currently it shares no common code.
 
 =head1 COPYRIGHT
 
 Copyright (c) 2011 Przemyslaw Iskra.
-
-Copyright (C) 2000-2005,2008-2010 Daniel Stenberg, Cris Bailiff,
-Sebastian Riedel, Balint Szilakszi et al.
 
 You may opt to use, copy, modify, merge, publish, distribute and/or sell
 copies of the Software, and permit persons to whom the Software is furnished
@@ -177,6 +177,8 @@ pick one of these licenses.
 
 =head1 SEE ALSO
 
+L<WWW::CurlOO::Easy>
+L<WWW::CurlOO::Compat>
+L<WWW::CurlOO::examples>
 L<http://curl.haxx.se>
-
 L<libcurl(3)>

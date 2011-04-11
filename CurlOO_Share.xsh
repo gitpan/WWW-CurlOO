@@ -22,6 +22,9 @@ struct perl_curl_share_s {
 
 	/* list of callbacks */
 	callback_t cb[ CB_SHARE_LAST ];
+
+	/* number of clones */
+	long threads;
 };
 
 
@@ -32,6 +35,7 @@ perl_curl_share_new( void )
 	perl_curl_share_t *share;
 	Newxz( share, 1, perl_curl_share_t );
 	share->handle = curl_share_init();
+	share->threads = 1;
 	return share;
 }
 
@@ -115,6 +119,35 @@ static curl_unlock_function pct_unlock __attribute__((unused)) = cb_share_unlock
 #endif
 
 
+static int
+perl_curl_share_magic_dup( pTHX_ MAGIC *mg, CLONE_PARAMS *param )
+{
+	perl_curl_share_t *share = (perl_curl_share_t *) mg->mg_ptr;
+	share->threads++;
+	return 0;
+}
+
+static int
+perl_curl_share_magic_free( pTHX_ SV *sv, MAGIC *mg )
+{
+	perl_curl_share_t *share = (perl_curl_share_t *) mg->mg_ptr;
+	share->threads--;
+	if ( share->threads < 1 )
+		perl_curl_share_delete( aTHX_ share );
+	return 0;
+}
+
+static MGVTBL perl_curl_share_vtbl = {
+	NULL, NULL, NULL, NULL
+	,perl_curl_share_magic_free
+	,NULL
+	,perl_curl_share_magic_dup
+#ifdef MGf_LOCAL
+	,NULL
+#endif
+};
+
+
 MODULE = WWW::CurlOO	PACKAGE = WWW::CurlOO::Share
 
 INCLUDE: const-share-xs.inc
@@ -133,7 +166,7 @@ new( sclass="WWW::CurlOO::Share", base=HASHREF_BY_DEFAULT )
 			croak( "object base must be a valid reference\n" );
 
 		share = perl_curl_share_new();
-		perl_curl_setptr( aTHX_ base, share );
+		perl_curl_setptr( aTHX_ base, &perl_curl_share_vtbl, share );
 
 		stash = gv_stashpv( sclass, 0 );
 		ST(0) = sv_bless( base, stash );
@@ -181,13 +214,6 @@ setopt( share, option, value )
 		};
 		if ( ret1 != CURLSHE_OK || ( ret1 = ret2 ) != CURLSHE_OK )
 			die_code( "Share", ret1 );
-
-
-void
-DESTROY( share )
-	WWW::CurlOO::Share share
-	CODE:
-		perl_curl_share_delete( aTHX_ share );
 
 
 SV *

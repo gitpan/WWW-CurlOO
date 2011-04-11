@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               WWW-CurlOO
-version:            0.12
+version:            0.13
 abstract:           Perl interface for libcurl
 author:
     - Przemysław Iskra <sparky at pld-linux.org>
