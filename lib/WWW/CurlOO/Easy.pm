@@ -31,12 +31,43 @@ WWW::CurlOO::Easy - Perl interface for curl_easy_* functions
 
 =head1 SYNOPSIS
 
+Direct use.
+
  use WWW::CurlOO::Easy qw(:constants);
 
  my $easy = WWW::CurlOO::Easy->new();
  $easy->setopt( CURLOPT_URL, "http://example.com/" );
 
  $easy->perform();
+
+Build your own browser.
+
+ package MyBrowser;
+ use WWW::CurlOO::Easy qw(/^CURLOPT_/ /^CURLINFO_/);
+ use base qw(WWW::CurlOO::Easy);
+
+ sub new
+ {
+     my $class = shift;
+     my $self = $class->SUPER::new( { head => '', body => ''} );
+     $self->setopt( CURLOPT_USERAGENT, "MyBrowser v0.1" );
+     $self->setopt( CURLOPT_FOLLOWLOCATION, 1 );
+     $self->setopt( CURLOPT_COOKIEFILE, "" ); # enable cookie session
+     $self->setopt( CURLOPT_FILE, \$self->{body} );
+     $self->setopt( CURLOPT_HEADERDATA, \$self->{head} );
+     return $self;
+ }
+
+ sub get
+ {
+     my ( $self, $uri ) = @_;
+     $self->setopt( CURLOPT_URL, $uri );
+     @$self{qw(head body)} = ('', '');
+     $self->perform();
+     my $ref = $self->getinfo( CURLINFO_EFFECTIVE_URL );
+     $self->setopt( CURLOPT_REFERER, $ref );
+     return @$self{qw(head body)};
+ }
 
 =head1 DESCRIPTION
 
@@ -86,7 +117,7 @@ VALUE depends on whatever that option expects.
 
  $easy->setopt( WWW::CurlOO::Easy::CURLOPT_URL, $uri );
 
-Calls L<curl_easy_setopt(3)>.
+Calls L<curl_easy_setopt(3)>. Throws L</WWW::CurlOO::Easy::Code> on error.
 
 =item pushopt( OPTION, ARRAYREF )
 
@@ -97,6 +128,15 @@ replacing the old slist.
      ['More: headers'] );
 
 Builds a slist and calls L<curl_easy_setopt(3)>.
+Throws L</WWW::CurlOO::Easy::Code> on error.
+
+=item reset( )
+
+Reinitializes easy handle.
+
+ $easy->reset();
+
+Calls L<curl_easy_reset(3)> and presets some defaults.
 
 =item perform( )
 
@@ -104,7 +144,8 @@ Perform upload and download process.
 
  $easy->perform();
 
-Calls L<curl_easy_perform(3)>.
+Calls L<curl_easy_perform(3)>. Rethrows exceptions from callbacks.
+Throws L</WWW::CurlOO::Easy::Code> on other errors.
 
 =item getinfo( OPTION )
 
@@ -113,6 +154,33 @@ Retrieve a value. OPTION is one of C<CURLINFO_*> constants.
  my $socket = $self->getinfo( CURLINFO_LASTSOCKET );
 
 Calls L<curl_easy_getinfo(3)>.
+Throws L</WWW::CurlOO::Easy::Code> on error.
+
+=item pause( )
+
+Pause the transfer.
+
+Calls L<curl_easy_pause(3)>. Not available in curl before 7.18.0.
+Throws L</WWW::CurlOO::Easy::Code> on error.
+
+=item send( BUFFER )
+
+Send raw data.
+
+ $easy->send( $data );
+
+Calls L<curl_easy_send(3)>. Not available in curl before 7.18.2.
+Throws L</WWW::CurlOO::Easy::Code> on error.
+
+=item recv( BUFFER, MAXLENGTH )
+
+Receive raw data. Will receive at most MAXLENGTH bytes. New data will be
+concatenated to BUFFER.
+
+ $easy->recv( $buffer, $len );
+
+Calls L<curl_easy_recv(3)>. Not available in curl before 7.18.2.
+Throws L</WWW::CurlOO::Easy::Code> on error.
 
 =item error( )
 
@@ -124,29 +192,14 @@ a longer description.
  my $error = $easy->error();
  print "Last error: $error\n";
 
-=item send( BUFFER )
-
-Send raw data.
-
- $easy->send( $data );
-
-Calls L<curl_easy_send(3)>. Not available in curl before 7.18.2.
-
-=item recv( BUFFER, MAXLENGTH )
-
-Receive raw data. Will receive at most MAXLENGTH bytes. New data will be
-concatenated to BUFFER.
-
- $easy->recv( $buffer, $len );
-
-Calls L<curl_easy_recv(3)>. Not available in curl before 7.18.2.
-
 =item multi( )
 
 If easy object is associated with any multi handles, it will return that
 multi handle.
 
  my $multi = $easy->multi;
+
+Use $multi->add_handle() to attach the easy object to the multi interface.
 
 =item share( )
 
@@ -155,6 +208,8 @@ share object.
 
  my $share = $easy->share;
 
+Use setopt() with CURLOPT_SHARE option to attach the share object.
+
 =item form( )
 
 If form object is attached to this easy handle, this method will return that
@@ -162,11 +217,7 @@ form object.
 
  my $form = $easy->form;
 
-=item DESTROY( )
-
-Cleans up. It should not be called manually.
-
-Calls L<curl_easy_cleanup(3)>.
+Use setopt() with CURLOPT_HTTPPOST option to attach the share object.
 
 =back
 
@@ -204,7 +255,7 @@ base object.
 =item CURLOPT_ERRORBUFFER
 
 setopt() does not allow to use this constant. You can always retrieve latest
-error message with OBJECT->error() method.
+error message with $east->error() method.
 
 =back
 
@@ -213,7 +264,9 @@ error message with OBJECT->error() method.
 Reffer to libcurl documentation for more detailed info on each of those.
 Callbacks can be set using setopt() method.
 
- $easy->setopt( CURLOPT_somethingFUNCTION, \&something );
+ $easy->setopt( CURLOPT_somethingFUNCTION, \&callback_function );
+ # or
+ $easy->setopt( CURLOPT_somethingFUNCTION, "callback_method" );
  $easy->setopt( CURLOPT_somethingDATA, [qw(any additional data
      you want)] );
 
@@ -324,7 +377,8 @@ ulnow and CURLOPT_PROGRESSDATA value. It should return 0.
 
 =item CURLOPT_HEADERFUNCTION ( CURLOPT_WRITEHEADER )
 
-Behaviour is the same as in write callback.
+Behaviour is the same as in write callback. Callback is called once for
+every header line.
 
 =item CURLOPT_DEBUGFUNCTION ( CURLOPT_DEBUGDATA )
 
@@ -394,11 +448,31 @@ CURLOPT_FNMATCH_DATA value. Must return one of CURL_FNMATCHFUNC_* values.
 
 =back
 
+=head2 WWW::CurlOO::Easy::Code
+
+Most WWW::CurlOO::Easy methods on failure throw a WWW::CurlOO::Easy::Code error
+object. It has both numeric value and, when used as string, it calls strerror()
+function to display a nice message.
+
+ eval {
+     $easy->somemethod();
+ };
+ if ( ref $@ eq "WWW::CurlOO::Easy::Code" ) {
+     if ( $@ == CURLE_SOME_ERROR_WE_EXPECTED ) {
+         warn "Expected error, continuing\n";
+     } else {
+         die "Unexpected curl error: $@\n";
+     }
+ } else {
+     # rethrow everyting else
+     die $@;
+ }
+
 =head1 SEE ALSO
 
 L<WWW::CurlOO>
 L<WWW::CurlOO::Multi>
-L<WWW::CurlOO::examples(3pm)>
+L<WWW::CurlOO::examples>
 L<libcurl-easy(3)>
 L<libcurl-errors(3)>
 
