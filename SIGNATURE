@@ -14,24 +14,25 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 34c9ab3eafc014efc9228bf1a518afdeb6af396a CurlOO.xs
+SHA1 8960f9d86734ab83958677d12536101e15e83914 CurlOO.xs
 SHA1 bc663705aff17f95fd8f129df8bed3c548e4bc36 CurlOO_Easy.xsh
 SHA1 9373abf78b88ff20731b81b10e3dbae36edd146f CurlOO_Easy_callbacks.c
-SHA1 3b38a2eb782e7e902a34e9aba66a46645010b40b CurlOO_Easy_setopt.c
+SHA1 b85ff181c94df7963c1ca190355a0d55fc51af96 CurlOO_Easy_setopt.c
 SHA1 268290ce6453cc77ed9548c6219d20e6eedce428 CurlOO_Form.xsh
-SHA1 b79e1117d1b69967a99b2ac1fb3827d69e0155db CurlOO_Multi.xsh
+SHA1 60fbfaec2b928650200bf506cb020b7765e76b5f CurlOO_Multi.xsh
 SHA1 b3afbfb0c78a091ddaa268829e98cf8493639976 CurlOO_Share.xsh
 SHA1 94cbea5b3fb940e25cd4535d1c81bfd7d51dac3c LICENSE
-SHA1 22c28d767a6be462edf50eed5edb8affd6b7413f MANIFEST
-SHA1 f8240d4a51a5b79d2d036b23c47c9fec6c7765e3 META.yml
-SHA1 ab9b64ab82541636fc3ab2f25fa532edbd22475a Makefile.PL
+SHA1 d1327b8bf85cb59d59da8a454ef6f853df6c235c MANIFEST
+SHA1 9821758ea787f07fb0d3714ae26a22b68ae3c431 META.yml
+SHA1 3c08e863694fa2b1d47e1a03cf07a62bbb999cda Makefile.PL
 SHA1 aaa4aeb7f4834c681acaaab924dd58fc0c157bbc README
 SHA1 4d7130a2dba4c9cbe3bbe8680ef71dca0bb59569 examples/01-curl-transport.pl
 SHA1 4d009f8c4d4d1419e426a3c32739e4024a00973b examples/02-multi-simple.pl
 SHA1 e04d379d26691b795ec652cbb5dfed718239d492 examples/03-multi-event.pl
 SHA1 a9d4692e27c919757d9c870da10a67e140cfa8fe examples/04-share-threads.pl
-SHA1 5d3e5a677f996d04f76fbd86f3e4be98b871bc27 inc/symbols-in-versions
-SHA1 a796d44807b6967724919d8389c130117d342bbe lib/WWW/CurlOO.pm
+SHA1 b9badd838a10330110be9c31b5c1465247f2a70d examples/05-irssi-downloader.pl
+SHA1 c94d48390d889d9b4776a2baebbe762b33a1cc26 inc/symbols-in-versions
+SHA1 fcc55d5c774fbfbf3424f288afa3154135148bdc lib/WWW/CurlOO.pm
 SHA1 ea398b3a33e980e659450c61fa9e38946cc6d5bd lib/WWW/CurlOO/Compat.pm
 SHA1 d57107665c5445e99819aca733dc97df7587862d lib/WWW/CurlOO/Easy.pm
 SHA1 233a698003f65da6d74d2ee273f01be47f3c847a lib/WWW/CurlOO/Form.pm
@@ -84,7 +85,7 @@ SHA1 f1274ac64e40c553c7ac9b08685e19d105d221ac typemap
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iEYEARECAAYFAk2xcVAACgkQdltEc8aiybmJWwCgg83kHorpdexYDr6q3XqmrpSr
-QAYAn3G26X/XNGlHVFHqhKWsBw/G3JC3
-=PcPz
+iEYEARECAAYFAk22CHsACgkQdltEc8aiybkKXQCdGoBvvajzs2H+LabvhwwC9Wi/
+LFcAnjCGQ40QrarwFdu/I4V3Eteaht/e
+=BjAb
 -----END PGP SIGNATURE-----
