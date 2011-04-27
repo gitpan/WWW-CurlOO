@@ -179,8 +179,6 @@ perl_curl_easy_delete( pTHX_ perl_curl_easy_t *easy )
 	if ( easy->share_sv )
 		sv_2mortal( easy->share_sv );
 
-	sv_2mortal( easy->perl_self );
-
 	Safefree( easy );
 
 } /*}}}*/
@@ -188,8 +186,14 @@ perl_curl_easy_delete( pTHX_ perl_curl_easy_t *easy )
 static int
 perl_curl_easy_magic_free( pTHX_ SV *sv, MAGIC *mg )
 {
-	if ( mg->mg_ptr )
+	if ( mg->mg_ptr ) {
+		/* prevent recursive destruction */
+		SvREFCNT( sv ) = 1 << 30;
+
 		perl_curl_easy_delete( aTHX_ (void *)mg->mg_ptr );
+
+		SvREFCNT( sv ) = 0;
+	}
 	return 0;
 }
 
@@ -252,8 +256,7 @@ new( sclass="WWW::CurlOO::Easy", base=HASHREF_BY_DEFAULT )
 		stash = gv_stashpv( sclass, 0 );
 		ST(0) = sv_bless( base, stash );
 
-		easy->perl_self = newSVsv( ST(0) );
-		sv_rvweaken( easy->perl_self );
+		easy->perl_self = SvRV( ST(0) );
 
 		XSRETURN(1);
 
@@ -361,8 +364,7 @@ duphandle( easy, base=HASHREF_BY_DEFAULT )
 		stash = gv_stashpv( sclass, 0 );
 		ST(0) = sv_bless( base, stash );
 
-		clone->perl_self = newSVsv( ST(0) );
-		sv_rvweaken( clone->perl_self );
+		clone->perl_self = SvRV( ST(0) );
 
 		XSRETURN(1);
 
@@ -591,7 +593,7 @@ SV *
 multi( easy )
 	WWW::CurlOO::Easy easy
 	CODE:
-		RETVAL = easy->multi ? newSVsv( easy->multi->perl_self ) : &PL_sv_undef;
+		RETVAL = easy->multi ? SELF2PERL( easy->multi ) : &PL_sv_undef;
 	OUTPUT:
 		RETVAL
 

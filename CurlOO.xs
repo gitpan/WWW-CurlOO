@@ -82,6 +82,11 @@
 			dst = NULL;					\
 	} STMT_END
 
+/*
+ * create a reference for perl callbacks
+ */
+#define SELF2PERL( obj ) \
+	sv_bless( newRV_inc( (obj)->perl_self ), SvSTASH( (obj)->perl_self ) )
 
 typedef struct {
 	/* function that will be called */
@@ -321,7 +326,8 @@ perl_curl_getptr_fatal( pTHX_ SV *self, MGVTBL *vtbl, const char *name,
 	 * existing reference from inside of a callback.
 	 */
 	perl_self = ret;
-	sv_2mortal( newSVsv( *perl_self ) );
+	if ( perl_self && *perl_self )
+		sv_2mortal( newRV_inc( *perl_self ) );
 
 	return ret;
 }
@@ -402,8 +408,10 @@ BOOT:
 		/* XXX 1: this is _not_ thread safe */
 		/* XXX 2: should never be called from a thread */
 		static int run_once = 0;
-		if ( !run_once++ )
+		if ( !run_once++ ) {
 			curl_global_init( CURL_GLOBAL_ALL );
+			atexit( curl_global_cleanup );
+		}
 	}
 	{
 		dTHX;
@@ -443,11 +451,6 @@ BOOT:
 PROTOTYPES: ENABLE
 
 INCLUDE: const-curl-xs.inc
-
-void
-_global_cleanup()
-	CODE:
-		curl_global_cleanup();
 
 time_t
 getdate( timedate )

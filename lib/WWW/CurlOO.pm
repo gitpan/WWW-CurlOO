@@ -6,7 +6,7 @@ use Exporter 'import';
 our @ISA;
 our $VERSION;
 BEGIN {
-	$VERSION = '0.17';
+	$VERSION = '0.18';
 
 	my $loaded = 0;
 
@@ -27,9 +27,6 @@ BEGIN {
 		eval { $load_xs->(); };
 		$load_dyna->() if $@;
 	}
-}
-END {
-	_global_cleanup();
 }
 
 our @EXPORT_OK = grep /^(?:LIB)?CURL/, keys %{WWW::CurlOO::};

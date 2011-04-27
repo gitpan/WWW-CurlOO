@@ -14,34 +14,37 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 8960f9d86734ab83958677d12536101e15e83914 CurlOO.xs
-SHA1 bc663705aff17f95fd8f129df8bed3c548e4bc36 CurlOO_Easy.xsh
-SHA1 9373abf78b88ff20731b81b10e3dbae36edd146f CurlOO_Easy_callbacks.c
+SHA1 b575656d569e79041a9a5acd9a6ddfe58971be66 CurlOO.xs
+SHA1 1fc2b09cf483886ccc24ae0d0ac87780f751f7fd CurlOO_Easy.xsh
+SHA1 cfb0aea84aee096e3a1e4acc1a4f36e6c456d7e4 CurlOO_Easy_callbacks.c
 SHA1 b85ff181c94df7963c1ca190355a0d55fc51af96 CurlOO_Easy_setopt.c
-SHA1 268290ce6453cc77ed9548c6219d20e6eedce428 CurlOO_Form.xsh
-SHA1 60fbfaec2b928650200bf506cb020b7765e76b5f CurlOO_Multi.xsh
-SHA1 b3afbfb0c78a091ddaa268829e98cf8493639976 CurlOO_Share.xsh
+SHA1 dc180a281fb50c22a3ce1081e966157fb0d82413 CurlOO_Form.xsh
+SHA1 ff2398c401fbea902956500373ae331dfae3f87d CurlOO_Multi.xsh
+SHA1 07e194131bfb0c86db8e9ce7f65ac1214d749459 CurlOO_Share.xsh
 SHA1 94cbea5b3fb940e25cd4535d1c81bfd7d51dac3c LICENSE
-SHA1 d1327b8bf85cb59d59da8a454ef6f853df6c235c MANIFEST
-SHA1 9821758ea787f07fb0d3714ae26a22b68ae3c431 META.yml
-SHA1 3c08e863694fa2b1d47e1a03cf07a62bbb999cda Makefile.PL
+SHA1 189d7535d4f1f369149faaf4edfd4bbd0d14dd74 MANIFEST
+SHA1 16d4a7e972c39f8ce08cb596b69b50b677a649be META.yml
+SHA1 f3b85dfaa58fc949171fa8ee3a92f8ca284268d4 Makefile.PL
 SHA1 aaa4aeb7f4834c681acaaab924dd58fc0c157bbc README
 SHA1 4d7130a2dba4c9cbe3bbe8680ef71dca0bb59569 examples/01-curl-transport.pl
 SHA1 4d009f8c4d4d1419e426a3c32739e4024a00973b examples/02-multi-simple.pl
 SHA1 e04d379d26691b795ec652cbb5dfed718239d492 examples/03-multi-event.pl
-SHA1 a9d4692e27c919757d9c870da10a67e140cfa8fe examples/04-share-threads.pl
+SHA1 b1e5a84d148475ac69f25d6a97f7237399bbc6bb examples/04-share-threads.pl
 SHA1 b9badd838a10330110be9c31b5c1465247f2a70d examples/05-irssi-downloader.pl
 SHA1 c94d48390d889d9b4776a2baebbe762b33a1cc26 inc/symbols-in-versions
-SHA1 fcc55d5c774fbfbf3424f288afa3154135148bdc lib/WWW/CurlOO.pm
+SHA1 4d33b1bf5fb65ba70583208f62b1f2f28d2f61a1 lib/WWW/CurlOO.pm
 SHA1 ea398b3a33e980e659450c61fa9e38946cc6d5bd lib/WWW/CurlOO/Compat.pm
 SHA1 d57107665c5445e99819aca733dc97df7587862d lib/WWW/CurlOO/Easy.pm
 SHA1 233a698003f65da6d74d2ee273f01be47f3c847a lib/WWW/CurlOO/Form.pm
 SHA1 040df86841f69b264ec4299aa1b47cedd7c48a16 lib/WWW/CurlOO/Multi.pm
-SHA1 abffd3ce8f068b222e5ec2bbbc5eb32b8d39664e lib/WWW/CurlOO/Share.pm
-SHA1 d33630f1451a3232fb08bf81373a6f9f2680fa9a lib/WWW/CurlOO/examples.pod
+SHA1 7b2eb151b919460e575e9b9083729fdeb4d48efb lib/WWW/CurlOO/Share.pm
+SHA1 54283c47b7d9674b731aaac1a1a67051d169d073 lib/WWW/CurlOO/examples.pod
 SHA1 f6a42980577229558600850512d5645f18fe212a t/00-info.t
 SHA1 aa58fcc172a04ccd9ddd27189b9d068f18098c4b t/01-constants.t
-SHA1 4dbc0151f61ae677287ec8f7384d5c23817a7f90 t/02-methods.t
+SHA1 d219f1298d3e72c8725ebce2d9694ed3add9c77b t/02-methods.t
+SHA1 1f01f94126bc013a01f54b9a1bd1023ed2b90f6d t/50-crash-lastref.t
+SHA1 f937628fd76a16847595ae8e8209710e2e784788 t/51-crash-destroy-with-callbacks.t
+SHA1 6c9380918480046c79e64ee80c6ea06c25af9232 t/52-alter-base.t
 SHA1 0190346d7072d458c8a10a45c19f86db641dcc48 t/97-pod.t
 SHA1 b26c178c9cba871bcb88434db41f12cf00a37983 t/98-pod-coverage.t
 SHA1 76549dd905466b42eaea5cf779b4ff8f702abf71 t/99-symbols.t
@@ -85,7 +88,7 @@ SHA1 f1274ac64e40c553c7ac9b08685e19d105d221ac typemap
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iEYEARECAAYFAk22CHsACgkQdltEc8aiybkKXQCdGoBvvajzs2H+LabvhwwC9Wi/
-LFcAnjCGQ40QrarwFdu/I4V3Eteaht/e
-=BjAb
+iEYEARECAAYFAk23boYACgkQdltEc8aiyblMiQCeMq7MUErxteUhczD+DoOaoyGf
+8HQAn1lbJb1VoAowLpQeuGl8Vjo2w8lK
+=rE7v
 -----END PGP SIGNATURE-----
